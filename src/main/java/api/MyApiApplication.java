@@ -1,5 +1,9 @@
 package api;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import connection.Connect;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -22,27 +26,41 @@ public class MyApiApplication {
     public String getMovies() {
         Connect connect = new Connect();
         Connection connection = connect.getConnection();
-        String movies = "No movies found";
+        String moviesJson = "No movies found";
         if (connection != null) {
             try {
                 // Create SQL query
-                String query = "SELECT * FROM film";
+                String query = "SELECT id_filmu, tytul, czas_trwania, ocena, opis FROM film";
 
                 // Execute the query
                 Statement statement = connection.createStatement();
                 ResultSet resultSet = statement.executeQuery(query);
 
                 // Process query results
-                movies = "";
+                moviesJson = "";
+
+                ObjectMapper objectMapper = new ObjectMapper();
+                ArrayNode moviesArray = objectMapper.createArrayNode();
                 while (resultSet.next()) {
                     // Get values from query result columns
-                    String title = resultSet.getString("title");
-                    String genre = resultSet.getString("genre");
-                    int releaseYear = resultSet.getInt("release_year");
+                    int id_filmu = resultSet.getInt("id_filmu");
+                    String tytul = resultSet.getString("tytul");
+                    int czas_trwania = resultSet.getInt("czas_trwania");
+                    double ocena = resultSet.getInt("ocena");
+                    String opis = resultSet.getString("opis");
 
                     // Append movie details to the response string
-                    movies += "Title: " + title + ", Genre: " + genre + ", Release Year: " + releaseYear + "\n";
+                    ObjectNode movieObject = objectMapper.createObjectNode();
+                    movieObject.put("ID", id_filmu);
+                    movieObject.put("tytul", tytul);
+                    movieObject.put("czas_trwania", czas_trwania);
+                    movieObject.put("ocena", ocena);
+                    movieObject.put("opis", opis);
+
+                    moviesArray.add(movieObject);
                 }
+
+                moviesJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(moviesArray);
 
                 // Close ResultSet and Statement objects
                 resultSet.close();
@@ -50,11 +68,13 @@ public class MyApiApplication {
 
             } catch (SQLException e) {
                 e.printStackTrace();
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
             } finally {
                 connect.close(); // Close the connection
             }
         }
-        return movies;
+        return moviesJson;
     }
 
     @GetMapping("/ranking")
