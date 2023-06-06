@@ -7,12 +7,20 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import connection.Connect;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.*;
 import java.sql.*;
+import java.util.Base64;
 
 @SpringBootApplication
 @RestController
@@ -23,22 +31,19 @@ public class MyApiApplication {
     }
 
     @GetMapping("/movies")
-    public String getMovies() {
+    public ResponseEntity<String> getMovies() {
         Connect connect = new Connect();
         Connection connection = connect.getConnection();
-        String moviesJson = "No movies found";
         if (connection != null) {
             try {
                 // Create SQL query
-                String query = "SELECT id_filmu, tytul, czas_trwania, ocena, opis FROM film";
+                String query = "SELECT id_filmu, tytul, czas_trwania, ocena, opis, okladka, cena FROM film";
 
                 // Execute the query
                 Statement statement = connection.createStatement();
                 ResultSet resultSet = statement.executeQuery(query);
 
                 // Process query results
-                moviesJson = "";
-
                 ObjectMapper objectMapper = new ObjectMapper();
                 ArrayNode moviesArray = objectMapper.createArrayNode();
                 while (resultSet.next()) {
@@ -48,34 +53,54 @@ public class MyApiApplication {
                     int czas_trwania = resultSet.getInt("czas_trwania");
                     double ocena = resultSet.getInt("ocena");
                     String opis = resultSet.getString("opis");
+                    Blob okladka = resultSet.getBlob("okladka");
+                    Double cena = resultSet.getDouble("cena");
+
+                    // Read the Blob data as a byte array
+                    byte[] imageBytes = okladka.getBytes(1, (int) okladka.length());
+
+                    // Convert the byte array to a Base64 encoded string
+                    String base64Image = Base64.getEncoder().encodeToString(imageBytes);
 
                     // Append movie details to the response string
                     ObjectNode movieObject = objectMapper.createObjectNode();
-                    movieObject.put("ID", id_filmu);
+                    movieObject.put("id_filmu", id_filmu);
                     movieObject.put("tytul", tytul);
                     movieObject.put("czas_trwania", czas_trwania);
                     movieObject.put("ocena", ocena);
                     movieObject.put("opis", opis);
+                    movieObject.put("okladka", base64Image);
+                    movieObject.put("cena", cena);
 
                     moviesArray.add(movieObject);
                 }
-
-                moviesJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(moviesArray);
 
                 // Close ResultSet and Statement objects
                 resultSet.close();
                 statement.close();
 
-            } catch (SQLException e) {
+                // Convert the moviesArray to a JSON string
+                String moviesJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(moviesArray);
+
+                // Set the response headers
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+
+                // Return the response with the JSON string and headers
+                return new ResponseEntity<>(moviesJson, headers, HttpStatus.OK);
+
+            } catch (SQLException | IOException e) {
                 e.printStackTrace();
-            } catch (JsonProcessingException e) {
-                throw new RuntimeException(e);
             } finally {
                 connect.close(); // Close the connection
             }
         }
-        return moviesJson;
+
+        // Return a response indicating no movies found
+        return ResponseEntity.notFound().build();
     }
+
+
 
     @GetMapping("/ranking")
     public String getMovieRanking() {
@@ -271,5 +296,16 @@ public class MyApiApplication {
                 connect.close(); // zamknięcie połączenia z bazą danych
             }
         }
+    }
+
+
+    public String getImageUrlFromBlob(byte[] imageData) {
+        // Convert the image data to Base64 encoding
+        String base64Data = Base64.getEncoder().encodeToString(imageData);
+
+        // Construct the data URL with the appropriate media type
+        String imageUrl = "data:image/png;base64," + base64Data;
+
+        return imageUrl;
     }
 }
