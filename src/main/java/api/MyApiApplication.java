@@ -26,7 +26,7 @@ public class MyApiApplication {
         if (connection != null) {
             try {
                 // Create SQL query
-                String query = "SELECT * FROM movies";
+                String query = "SELECT * FROM film";
 
                 // Execute the query
                 Statement statement = connection.createStatement();
