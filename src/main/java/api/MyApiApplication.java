@@ -37,7 +37,10 @@ public class MyApiApplication {
         if (connection != null) {
             try {
                 // Create SQL query
-                String query = "SELECT id_filmu, tytul, czas_trwania, ocena, opis, okladka, cena FROM film";
+                String query = "SELECT f.id_filmu, f.tytul, f.czas_trwania, f.ocena, f.opis, f.okladka, f.cena, g.nazwa_gatunku, s.data, s.pora_emisji " +
+                        "FROM film f " +
+                        "INNER JOIN gatunek g ON f.id_gatunku = g.id_gatunku " +
+                        "INNER JOIN seanse s ON f.id_filmu = s.id_filmu";
 
                 // Execute the query
                 Statement statement = connection.createStatement();
@@ -56,11 +59,15 @@ public class MyApiApplication {
                     Blob okladka = resultSet.getBlob("okladka");
                     Double cena = resultSet.getDouble("cena");
 
-                    // Read the Blob data as a byte array
-                    byte[] imageBytes = okladka.getBytes(1, (int) okladka.length());
+                    String nazwa_gatunku = resultSet.getString("nazwa_gatunku");
 
-                    // Convert the byte array to a Base64 encoded string
-                    String base64Image = Base64.getEncoder().encodeToString(imageBytes);
+                    String data = resultSet.getString("data");
+                    String pora_emisji = resultSet.getString("pora_emisji");
+
+
+                    byte[] imageBytes = okladka.getBytes(1, (int) okladka.length()); // Read the Blob data as a byte array
+                    String base64Image = Base64.getEncoder().encodeToString(imageBytes); // Convert the byte array to a Base64 encoded string
+
 
                     // Append movie details to the response string
                     ObjectNode movieObject = objectMapper.createObjectNode();
@@ -71,6 +78,11 @@ public class MyApiApplication {
                     movieObject.put("opis", opis);
                     movieObject.put("okladka", base64Image);
                     movieObject.put("cena", cena);
+
+                    movieObject.put("nazwa_gatunku", nazwa_gatunku);
+
+                    movieObject.put("data", data);
+                    movieObject.put("pora_emisji", pora_emisji);
 
                     moviesArray.add(movieObject);
                 }
@@ -165,45 +177,6 @@ public class MyApiApplication {
         return moviesJson;
     }
 
-
-    @GetMapping("/ranking")
-    public String getMovieRanking() {
-        Connect connect = new Connect();
-        Connection connection = connect.getConnection();
-        String ranking = "No ranking available";
-        if (connection != null) {
-            try {
-                // Create SQL query
-                String query = "SELECT movie_id, AVG(rating) AS average_rating FROM ratings GROUP BY movie_id ORDER BY average_rating DESC LIMIT 10";
-
-                // Execute the query
-                Statement statement = connection.createStatement();
-                ResultSet resultSet = statement.executeQuery(query);
-
-                // Process query results
-                ranking = "";
-                while (resultSet.next()) {
-                    // Get values from query result columns
-                    int movieId = resultSet.getInt("movie_id");
-                    double averageRating = resultSet.getDouble("average_rating");
-
-                    // Append movie ranking details to the response string
-                    ranking += "Movie ID: " + movieId + ", Average Rating: " + averageRating + "\n";
-                }
-
-                // Close ResultSet and Statement objects
-                resultSet.close();
-                statement.close();
-
-            } catch (SQLException e) {
-                e.printStackTrace();
-            } finally {
-                connect.close(); // Close the connection
-            }
-        }
-        return ranking;
-    }
-
     @PostMapping("/book")
     public void bookTickets(@RequestParam(name = "movieId") int movieId, @RequestParam(name = "numTickets") int numTickets) {
         Connect connect = new Connect();
@@ -272,7 +245,7 @@ public class MyApiApplication {
         if (connection != null) {
             try {
                 // Tworzenie zapytania SQL
-                String query = "SELECT id_uzytk FROM uzytkownicy WHERE login = ? AND haslo = ?";
+                String query = "SELECT id_uzyt FROM uzytkownicy WHERE login = ? AND haslo = ?";
 
                 PreparedStatement statement = connection.prepareStatement(query);
 
@@ -312,64 +285,55 @@ public class MyApiApplication {
         Connection connection = connect.getConnection();
         if (connection != null) {
             try {
-                connection.setAutoCommit(false); // włączenie ręcznego zarządzania transakcjami
+                connection.setAutoCommit(false); // enable manual transaction management
 
-                // Tworzenie zapytania SQL
+                // Create SQL query
                 String query = "SELECT id_uzyt FROM uzytkownicy WHERE login = ?";
                 PreparedStatement statement = connection.prepareStatement(query);
-
                 statement.setString(1, login);
                 ResultSet resultSet = statement.executeQuery();
 
-                while(resultSet.next()){
+                while (resultSet.next()) {
                     count++;
                 }
-                if(count!=0){
-                    System.out.println("Użytkownik o podanym loginie już istnieje");
-                }else {
-                    // Utworzenie zapytania SQL
+                if (count != 0) {
+                    System.out.println("User with the given login already exists");
+                } else {
+                    // Create SQL query
                     query = "INSERT INTO uzytkownicy (login, haslo, email) VALUES (?, ?, ?)";
 
-                    // Przygotowanie instrukcji SQL z parametrami
+                    // Prepare SQL statement with parameters
                     PreparedStatement statement2 = connection.prepareStatement(query);
                     statement2.setString(1, login);
                     statement2.setString(2, password);
                     statement2.setString(3, email);
 
-                    // Wykonanie instrukcji SQL
+                    // Execute SQL statement
                     int rowsAffected = statement2.executeUpdate();
 
-                    if (rowsAffected == 1) { // Jeżeli wstawiono dokładnie jeden wiersz
-                        connection.commit(); // zatwierdzenie tranzakcji
+                    if (rowsAffected == 1) { // If exactly one row was inserted
+                        connection.commit(); // commit the transaction
                     } else {
-                        connection.rollback(); // wycofanie tranzakcji
+                        connection.rollback(); // rollback the transaction
                     }
 
-                    // Zamknięcie obiektów Statement i Connection
+                    // Close Statement and Connection objects
                     statement.close();
                     statement2.close();
                 }
             } catch (SQLException e) {
                 e.printStackTrace();
                 try {
-                    connection.rollback(); // wycofanie tranzakcji w przypadku błędu SQL
+                    connection.rollback(); // rollback the transaction in case of SQL error
                 } catch (SQLException ex) {
                     ex.printStackTrace();
                 }
             } finally {
-                connect.close(); // zamknięcie połączenia z bazą danych
+                connect.close(); // close the database connection
             }
         }
     }
 
 
-    public String getImageUrlFromBlob(byte[] imageData) {
-        // Convert the image data to Base64 encoding
-        String base64Data = Base64.getEncoder().encodeToString(imageData);
 
-        // Construct the data URL with the appropriate media type
-        String imageUrl = "data:image/png;base64," + base64Data;
-
-        return imageUrl;
-    }
 }
