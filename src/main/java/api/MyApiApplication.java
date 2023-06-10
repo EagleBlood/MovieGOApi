@@ -11,16 +11,12 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
-import java.io.*;
+import java.io.IOException;
 import java.sql.*;
 import java.util.Base64;
+import java.util.List;
 
 @SpringBootApplication
 @RestController
@@ -37,7 +33,7 @@ public class MyApiApplication {
         if (connection != null) {
             try {
                 // Create SQL query
-                String query = "SELECT f.id_filmu, f.tytul, f.czas_trwania, f.ocena, f.opis, f.okladka, f.cena, g.nazwa_gatunku, s.data, s.pora_emisji " +
+                String query = "SELECT f.id_filmu, f.tytul, f.czas_trwania, f.ocena, f.opis, f.okladka, f.cena, g.nazwa_gatunku, s.data, s.pora_emisji, s.id_seansu " +
                         "FROM film f " +
                         "INNER JOIN gatunek g ON f.id_gatunku = g.id_gatunku " +
                         "INNER JOIN seanse s ON f.id_filmu = s.id_filmu";
@@ -54,20 +50,20 @@ public class MyApiApplication {
                     int id_filmu = resultSet.getInt("id_filmu");
                     String tytul = resultSet.getString("tytul");
                     int czas_trwania = resultSet.getInt("czas_trwania");
-                    double ocena = resultSet.getInt("ocena");
+                    double ocena = resultSet.getDouble("ocena");
                     String opis = resultSet.getString("opis");
                     Blob okladka = resultSet.getBlob("okladka");
-                    Double cena = resultSet.getDouble("cena");
+                    double cena = resultSet.getDouble("cena");
 
                     String nazwa_gatunku = resultSet.getString("nazwa_gatunku");
 
                     String data = resultSet.getString("data");
                     String pora_emisji = resultSet.getString("pora_emisji");
+                    int id_seansu = resultSet.getInt("id_seansu");
 
 
                     byte[] imageBytes = okladka.getBytes(1, (int) okladka.length()); // Read the Blob data as a byte array
                     String base64Image = Base64.getEncoder().encodeToString(imageBytes); // Convert the byte array to a Base64 encoded string
-
 
                     // Append movie details to the response string
                     ObjectNode movieObject = objectMapper.createObjectNode();
@@ -83,6 +79,7 @@ public class MyApiApplication {
 
                     movieObject.put("data", data);
                     movieObject.put("pora_emisji", pora_emisji);
+                    movieObject.put("id_seansu", id_seansu);
 
                     moviesArray.add(movieObject);
                 }
@@ -126,7 +123,7 @@ public class MyApiApplication {
                     "INNER JOIN miejsca ON bilet.id_miejsca = miejsca.id_miejsca " +
                     "INNER JOIN seanse ON bilet.id_seansu = seanse.id_seansu " +
                     "INNER JOIN film ON seanse.id_filmu = film.id_filmu " +
-                    "GROUP BY bilet.id_rezer;";
+                    "GROUP BY bilet.id_rezer";
 
                 // Execute the query
                 Statement statement = connection.createStatement();
@@ -177,64 +174,178 @@ public class MyApiApplication {
         return moviesJson;
     }
 
-    @PostMapping("/book")
-    public void bookTickets(@RequestParam(name = "movieId") int movieId, @RequestParam(name = "numTickets") int numTickets) {
+    @GetMapping("/seats")
+    public String getSeats(){
         Connect connect = new Connect();
         Connection connection = connect.getConnection();
+        String seatsJson = "No movies found";
         if (connection != null) {
             try {
-                connection.setAutoCommit(false); // Enable manual transaction management
+                // Create SQL query
+                String query = "SELECT id_miejsca, rzad, fotel FROM miejsca";
 
-                // Check if movie exists
-                String movieCheckQuery = "SELECT * FROM movies WHERE id = ?";
-                PreparedStatement movieCheckStatement = connection.prepareStatement(movieCheckQuery);
-                movieCheckStatement.setInt(1, movieId);
-                ResultSet movieCheckResult = movieCheckStatement.executeQuery();
+                // Execute the query
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(query);
 
-                if (movieCheckResult.next()) {
-                    int availableTickets = movieCheckResult.getInt("tickets");
+                // Process query results
+                seatsJson = "";
 
-                    // Check if sufficient tickets are available
-                    if (numTickets <= availableTickets) {
-                        // Update the ticket count for the movie
-                        String updateQuery = "UPDATE movies SET tickets = tickets - ? WHERE id = ?";
-                        PreparedStatement updateStatement = connection.prepareStatement(updateQuery);
-                        updateStatement.setInt(1, numTickets);
-                        updateStatement.setInt(2, movieId);
-                        int rowsAffected = updateStatement.executeUpdate();
+                ObjectMapper objectMapper = new ObjectMapper();
+                ArrayNode seatsArray = objectMapper.createArrayNode();
+                while (resultSet.next()) {
+                    // Get values from query result columns
+                    int seatId = resultSet.getInt("id_miejsca");
+                    int row = resultSet.getInt("rzad");
+                    int armchair = resultSet.getInt("fotel");
 
-                        if (rowsAffected == 1) {
-                            connection.commit(); // Commit the transaction if the update was successful
-                            System.out.println("Tickets booked successfully");
-                        } else {
-                            connection.rollback(); // Rollback the transaction if the update failed
-                            System.out.println("Failed to book tickets");
-                        }
+                    // Append movie details to the response string
+                    ObjectNode movieObject = objectMapper.createObjectNode();
+                    movieObject.put("id_miejsca", seatId);
+                    movieObject.put("rzad", row);
+                    movieObject.put("fotel", armchair);
 
-                        updateStatement.close();
-                    } else {
-                        System.out.println("Insufficient tickets available");
-                    }
-                } else {
-                    System.out.println("Movie not found");
+                    seatsArray.add(movieObject);
                 }
 
-                movieCheckResult.close();
-                movieCheckStatement.close();
+                seatsJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(seatsArray);
+
+                // Close ResultSet and Statement objects
+                resultSet.close();
+                statement.close();
 
             } catch (SQLException e) {
                 e.printStackTrace();
-                try {
-                    connection.rollback(); // Rollback the transaction in case of SQL error
-                } catch (SQLException ex) {
-                    ex.printStackTrace();
-                }
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
             } finally {
-                connect.close(); // Close the connection to the database
+                connect.close(); // Close the connection
             }
         }
+        return seatsJson;
     }
 
+    @GetMapping("/seats/reserved")
+    public String getReservedSeats(@RequestParam(name = "id_seansu") int id_seansu){
+
+        Connect connect = new Connect();
+        Connection connection = connect.getConnection();
+        String seatsJson = "No seats found";
+        if (connection != null) {
+            try {
+
+                String query = "SELECT id_miejsca FROM bilet WHERE id_seansu = ?";
+
+                PreparedStatement statement = connection.prepareStatement(query);
+                statement.setInt(1, id_seansu);
+                ResultSet resultSet = statement.executeQuery();
+
+                seatsJson = "";
+
+                ObjectMapper objectMapper = new ObjectMapper();
+                ArrayNode seatsArray = objectMapper.createArrayNode();
+                while (resultSet.next()) {
+                    int seatId = resultSet.getInt("id_miejsca");
+
+                    ObjectNode movieObject = objectMapper.createObjectNode();
+                    movieObject.put("id_miejsca", seatId);
+
+                    seatsArray.add(movieObject);
+                }
+
+                seatsJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(seatsArray);
+
+                // Close ResultSet and Statement objects
+                resultSet.close();
+                statement.close();
+
+            } catch (SQLException e) {
+                e.printStackTrace();
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            } finally {
+                connect.close(); // Close the connection
+            }
+        }
+        return seatsJson;
+    }
+
+
+
+    @PostMapping("/book")
+    public ResponseEntity<BookResponse> bookTickets(@RequestBody BookResponse bookResponse) {
+        try {
+            int userId = bookResponse.getUserId();
+            double price = bookResponse.getPrice();
+            List<Ticket> ticketList = bookResponse.getTicketList();
+
+            Connect connect = new Connect();
+            Connection connection = connect.getConnection();
+            if (connection != null) {
+                try {
+                    connection.setAutoCommit(false); // Enable manual transaction management
+
+                    String lastOrderQuery = "SELECT nr_rezerwacji FROM rezerwacje ORDER BY nr_rezerwacji DESC LIMIT 1";
+                    PreparedStatement lastOrderStatement = connection.prepareStatement(lastOrderQuery);
+                    ResultSet lastOrderResult = lastOrderStatement.executeQuery();
+                    String orderNumber;
+
+                    if (lastOrderResult.next()) {
+                        String lastOrderNumber = lastOrderResult.getString("nr_rezerwacji");
+                        int orderIndex = Integer.parseInt(lastOrderNumber.substring(1)) + 1;
+                        orderNumber = "K" + String.format("%04d", orderIndex);
+                    } else {
+                        orderNumber = "K0001";
+                    }
+
+                    String insertOrderQuery = "INSERT INTO rezerwacje (nr_rezerwacji, id_uzyt, kwota_rezer) VALUES (?, ?, ?)";
+                    PreparedStatement insertOrderStatement = connection.prepareStatement(insertOrderQuery, Statement.RETURN_GENERATED_KEYS);
+                    insertOrderStatement.setString(1, orderNumber);
+                    insertOrderStatement.setInt(2, userId);
+                    insertOrderStatement.setDouble(3, price);
+                    insertOrderStatement.executeUpdate();
+                    ResultSet generatedKeys = insertOrderStatement.getGeneratedKeys();
+                    int orderId;
+
+                    if (generatedKeys.next()) {
+                        orderId = generatedKeys.getInt(1);
+
+                        // Insert tickets
+                        for (Ticket ticket : ticketList) {
+                            String insertTicketQuery = "INSERT INTO bilet (id_biletu, id_rezer, id_seansu, id_miejsca, cena) VALUES (NULL, ?, ?, ?, ?)";
+                            PreparedStatement insertTicketStatement = connection.prepareStatement(insertTicketQuery);
+                            insertTicketStatement.setInt(1, orderId);
+                            insertTicketStatement.setInt(2, ticket.getId_seansu());
+                            insertTicketStatement.setInt(3, ticket.getId_miejsca());
+                            insertTicketStatement.setDouble(4, ticket.getCena());
+                            insertTicketStatement.executeUpdate();
+                            insertTicketStatement.close();
+                        }
+
+                        connection.commit(); // Commit the transaction if the update and insertion were successful
+                        System.out.println("Tickets booked successfully. Order ID: " + orderId);
+                        return ResponseEntity.ok(bookResponse);
+                    } else {
+                        connection.rollback(); // Rollback the transaction if the insertion failed
+                        System.out.println("Failed to book tickets");
+                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+                    }
+
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                    connection.rollback(); // Rollback the transaction in case of SQL error
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+                } finally {
+                    connect.close(); // Close the connection to the database
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+    }
 
     @GetMapping("/login")
     public String checkLogin(@RequestParam(name = "login") String login, @RequestParam(name = "password") String password){
