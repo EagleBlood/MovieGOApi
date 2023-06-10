@@ -389,6 +389,70 @@ public class MyApiApplication {
         return logSucces;
     }
 
+    @GetMapping("/users/{login}")
+    public ResponseEntity<String> getUserByUsername(@PathVariable("login") String login) {
+        Connect connect = new Connect();
+        Connection connection = connect.getConnection();
+        if (connection != null) {
+            try {
+                // Create SQL query
+                String query = "SELECT * FROM uzytkownicy WHERE login = ?";
+
+                // Execute the query
+                PreparedStatement statement = connection.prepareStatement(query);
+                statement.setString(1, login);
+                ResultSet resultSet = statement.executeQuery();
+
+                // Process query result
+                if (resultSet.next()) {
+                    // Get values from query result columns
+                    int id = resultSet.getInt("id_uzyt");
+                    String name = resultSet.getString("imie");
+                    String surname = resultSet.getString("nazwisko");
+                    String email = resultSet.getString("email");
+                    String password = resultSet.getString("haslo");
+                    String address = resultSet.getString("adress");
+                    String birthdate = resultSet.getString("data_ur");
+                    int number = resultSet.getInt("numer_tel");
+
+                    // Create a JSON object for the user
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    ObjectNode userObject = objectMapper.createObjectNode();
+                    userObject.put("id_uzyt", id);
+                    userObject.put("login", login);
+                    userObject.put("imie", name);
+                    userObject.put("nazwisko", surname);
+                    userObject.put("email", email);
+                    userObject.put("haslo", password);
+                    userObject.put("adress", address);
+                    userObject.put("data_ur", birthdate);
+                    userObject.put("numer_tel", number);
+
+                    // Convert the user object to a JSON string
+                    String userJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(userObject);
+
+                    // Set the response headers
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.setContentType(MediaType.APPLICATION_JSON);
+
+                    // Return the response with the JSON string and headers
+                    return new ResponseEntity<>(userJson, headers, HttpStatus.OK);
+                }
+
+                // Close ResultSet and Statement objects
+                resultSet.close();
+                statement.close();
+            } catch (SQLException | JsonProcessingException e) {
+                e.printStackTrace();
+            } finally {
+                connect.close(); // Close the connection
+            }
+        }
+
+        // Return a response indicating no user found
+        return ResponseEntity.notFound().build();
+    }
+
     @PostMapping("/register")
     public void addUser(@RequestParam(name = "login") String login, @RequestParam(name = "password") String password, @RequestParam(name = "email") String email) {
         int count = 0;
