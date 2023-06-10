@@ -110,24 +110,26 @@ public class MyApiApplication {
     }
 
     @GetMapping("/tickets")
-    public String getTickets() {
+    public String getTickets(@RequestParam(name = "id_uzyt") int id_uzyt) {
         Connect connect = new Connect();
         Connection connection = connect.getConnection();
         String moviesJson = "No movies found";
         if (connection != null) {
             try {
                 // Create SQL query
-                String query = "SELECT rezerwacje.nr_rezerwacji, film.tytul, uzytkownicy.login, COUNT(bilet.id_rezer) AS ilosc_biletow, GROUP_CONCAT(CONCAT(miejsca.rzad, ':', miejsca.fotel) SEPARATOR ' | ') AS miejsca, SUM(bilet.cena) AS cena, CONCAT(seanse.data,' ', seanse.pora_emisji) data FROM bilet " +
-                    "INNER JOIN rezerwacje ON bilet.id_rezer = rezerwacje.id_rezer " +
-                    "INNER JOIN uzytkownicy ON rezerwacje.id_uzyt = uzytkownicy.id_uzyt " +
-                    "INNER JOIN miejsca ON bilet.id_miejsca = miejsca.id_miejsca " +
-                    "INNER JOIN seanse ON bilet.id_seansu = seanse.id_seansu " +
-                    "INNER JOIN film ON seanse.id_filmu = film.id_filmu " +
-                    "GROUP BY bilet.id_rezer";
+                String query = "SELECT rezerwacje.nr_rezerwacji, film.tytul, uzytkownicy.login, COUNT(bilet.id_rezer) AS ilosc_biletow, GROUP_CONCAT(CONCAT(miejsca.rzad, ':', miejsca.fotel) SEPARATOR ' | ') AS miejsca, SUM(bilet.cena) AS cena, CONCAT(seanse.data,' ', seanse.pora_emisji) AS data FROM bilet " +
+                        "INNER JOIN rezerwacje ON bilet.id_rezer = rezerwacje.id_rezer " +
+                        "INNER JOIN uzytkownicy ON rezerwacje.id_uzyt = uzytkownicy.id_uzyt " +
+                        "INNER JOIN miejsca ON bilet.id_miejsca = miejsca.id_miejsca " +
+                        "INNER JOIN seanse ON bilet.id_seansu = seanse.id_seansu " +
+                        "INNER JOIN film ON seanse.id_filmu = film.id_filmu " +
+                        "WHERE uzytkownicy.id_uzyt = ? " +
+                        "GROUP BY bilet.id_rezer";
 
                 // Execute the query
-                Statement statement = connection.createStatement();
-                ResultSet resultSet = statement.executeQuery(query);
+                PreparedStatement statement = connection.prepareStatement(query);
+                statement.setInt(1, id_uzyt);
+                ResultSet resultSet = statement.executeQuery();
 
                 // Process query results
                 moviesJson = "";
