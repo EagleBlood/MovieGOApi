@@ -13,7 +13,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.beans.BeanProperty;
 import java.io.IOException;
 import java.sql.*;
 import java.util.Base64;
@@ -178,7 +177,7 @@ public class MyApiApplication {
     }
 
     @GetMapping("/seats")
-    public String getSeats() {
+    public String getSeats(){
         Connect connect = new Connect();
         Connection connection = connect.getConnection();
         String seatsJson = "No movies found";
@@ -229,7 +228,7 @@ public class MyApiApplication {
     }
 
     @GetMapping("/seats/reserved")
-    public String getReservedSeats(@RequestParam(name = "id_seansu") int id_seansu) {
+    public String getReservedSeats(@RequestParam(name = "id_seansu") int id_seansu){
 
         Connect connect = new Connect();
         Connection connection = connect.getConnection();
@@ -272,6 +271,7 @@ public class MyApiApplication {
         }
         return seatsJson;
     }
+
 
 
     @PostMapping("/book")
@@ -350,7 +350,7 @@ public class MyApiApplication {
     }
 
     @GetMapping("/login")
-    public String checkLogin(@RequestParam(name = "login") String login, @RequestParam(name = "password") String password) {
+    public String checkLogin(@RequestParam(name = "login") String login, @RequestParam(name = "password") String password){
         String logSucces = "false";
         int count = 0;
         Connect connect = new Connect();
@@ -371,11 +371,11 @@ public class MyApiApplication {
 
 
                 // Przetwarzanie wyników zapytania
-                while (resultSet.next()) {
+                while(resultSet.next()){
                     count++;
                 }
-                if (count > 0) {
-                    logSucces = "true";
+                if(count>0){
+                    logSucces="true";
                 }
                 // Zamknięcie obiektów ResultSet i Statement
                 resultSet.close();
@@ -464,7 +464,6 @@ public class MyApiApplication {
 
         Connect connect = new Connect();
         Connection connection = connect.getConnection();
-
         if (connection != null) {
             try {
                 connection.setAutoCommit(false); // enable manual transaction management
@@ -512,5 +511,7 @@ public class MyApiApplication {
         }
         return null;
     }
+
+
 
 }
