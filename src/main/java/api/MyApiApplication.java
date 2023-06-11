@@ -413,7 +413,7 @@ public class MyApiApplication {
                     String surname = resultSet.getString("nazwisko");
                     String email = resultSet.getString("email");
                     String password = resultSet.getString("haslo");
-                    String address = resultSet.getString("adress");
+                    String address = resultSet.getString("adres");
                     String birthdate = resultSet.getString("data_ur");
                     int number = resultSet.getInt("numer_tel");
 
@@ -426,7 +426,7 @@ public class MyApiApplication {
                     userObject.put("nazwisko", surname);
                     userObject.put("email", email);
                     userObject.put("haslo", password);
-                    userObject.put("adress", address);
+                    userObject.put("adres", address);
                     userObject.put("data_ur", birthdate);
                     userObject.put("numer_tel", number);
 
