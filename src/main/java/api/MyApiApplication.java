@@ -13,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.beans.BeanProperty;
 import java.io.IOException;
 import java.sql.*;
 import java.util.Base64;
@@ -177,7 +178,7 @@ public class MyApiApplication {
     }
 
     @GetMapping("/seats")
-    public String getSeats(){
+    public String getSeats() {
         Connect connect = new Connect();
         Connection connection = connect.getConnection();
         String seatsJson = "No movies found";
@@ -228,7 +229,7 @@ public class MyApiApplication {
     }
 
     @GetMapping("/seats/reserved")
-    public String getReservedSeats(@RequestParam(name = "id_seansu") int id_seansu){
+    public String getReservedSeats(@RequestParam(name = "id_seansu") int id_seansu) {
 
         Connect connect = new Connect();
         Connection connection = connect.getConnection();
@@ -271,7 +272,6 @@ public class MyApiApplication {
         }
         return seatsJson;
     }
-
 
 
     @PostMapping("/book")
@@ -350,7 +350,7 @@ public class MyApiApplication {
     }
 
     @GetMapping("/login")
-    public String checkLogin(@RequestParam(name = "login") String login, @RequestParam(name = "password") String password){
+    public String checkLogin(@RequestParam(name = "login") String login, @RequestParam(name = "password") String password) {
         String logSucces = "false";
         int count = 0;
         Connect connect = new Connect();
@@ -371,11 +371,11 @@ public class MyApiApplication {
 
 
                 // Przetwarzanie wyników zapytania
-                while(resultSet.next()){
+                while (resultSet.next()) {
                     count++;
                 }
-                if(count>0){
-                    logSucces="true";
+                if (count > 0) {
+                    logSucces = "true";
                 }
                 // Zamknięcie obiektów ResultSet i Statement
                 resultSet.close();
@@ -456,10 +456,15 @@ public class MyApiApplication {
     }
 
     @PostMapping("/register")
-    public void addUser(@RequestParam(name = "login") String login, @RequestParam(name = "password") String password, @RequestParam(name = "email") String email) {
-        int count = 0;
+    public ResponseEntity<RegistrationResponse> addUser(@RequestBody RegistrationResponse registrationResponse) {
+
+        String login = registrationResponse.getLogin();
+        String password = registrationResponse.getPassword();
+        String email = registrationResponse.getEmail();
+
         Connect connect = new Connect();
         Connection connection = connect.getConnection();
+
         if (connection != null) {
             try {
                 connection.setAutoCommit(false); // enable manual transaction management
@@ -470,11 +475,8 @@ public class MyApiApplication {
                 statement.setString(1, login);
                 ResultSet resultSet = statement.executeQuery();
 
-                while (resultSet.next()) {
-                    count++;
-                }
-                if (count != 0) {
-                    System.out.println("User with the given login already exists");
+                if (resultSet.next()) {
+                    return ResponseEntity.ok(new RegistrationResponse("User with the given login already exists"));
                 } else {
                     // Create SQL query
                     query = "INSERT INTO uzytkownicy (login, haslo, email) VALUES (?, ?, ?)";
@@ -490,13 +492,11 @@ public class MyApiApplication {
 
                     if (rowsAffected == 1) { // If exactly one row was inserted
                         connection.commit(); // commit the transaction
+                        return ResponseEntity.ok(new RegistrationResponse("User registered successfully"));
                     } else {
                         connection.rollback(); // rollback the transaction
+                        return ResponseEntity.ok(new RegistrationResponse("Failed to register user"));
                     }
-
-                    // Close Statement and Connection objects
-                    statement.close();
-                    statement2.close();
                 }
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -505,12 +505,12 @@ public class MyApiApplication {
                 } catch (SQLException ex) {
                     ex.printStackTrace();
                 }
+                return ResponseEntity.ok(new RegistrationResponse("An error occurred during registration"));
             } finally {
                 connect.close(); // close the database connection
             }
         }
+        return null;
     }
-
-
 
 }
