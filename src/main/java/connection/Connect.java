@@ -7,8 +7,8 @@ import java.sql.SQLException;
 public class Connect {
 
     private String driver = "com.mysql.cj.jdbc.Driver";
-    private String user = "wiktor10_wiktor_uszko";
-    private String pass = "BQ]k_3=Hln{~";
+    private String user = "login";
+    private String pass = "password";
 
     private String url = "jdbc:mysql://w10.domenomania.eu/wiktor10_kino";
     private Connection connection;
