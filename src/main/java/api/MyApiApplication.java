@@ -456,47 +456,46 @@ public class MyApiApplication {
     }
 
     @PostMapping("/register")
-    public void addUser(@RequestParam(name = "login") String login, @RequestParam(name = "password") String password, @RequestParam(name = "email") String email) {
-        int count = 0;
+    public ResponseEntity<String> addUser(@RequestParam(name = "login") String login,
+                                          @RequestParam(name = "password") String password,
+                                          @RequestParam(name = "email") String email) {
         Connect connect = new Connect();
         Connection connection = connect.getConnection();
+
         if (connection != null) {
             try {
                 connection.setAutoCommit(false); // enable manual transaction management
 
-                // Create SQL query
-                String query = "SELECT id_uzyt FROM uzytkownicy WHERE login = ?";
+                // Check if the login name already exists
+                String checkQuery = "SELECT COUNT(*) FROM uzytkownicy WHERE login = ?";
+                PreparedStatement checkStatement = connection.prepareStatement(checkQuery);
+                checkStatement.setString(1, login);
+                ResultSet checkResult = checkStatement.executeQuery();
+
+                if (checkResult.next()) {
+                    int count = checkResult.getInt(1);
+                    if (count > 0) {
+                        System.out.println("User with the given login already exists");
+                        return ResponseEntity.status(HttpStatus.CONFLICT).body("User with the given login already exists");
+                    }
+                }
+
+                // Continue with user registration
+                String query = "INSERT INTO uzytkownicy (login, haslo, email) VALUES (?, ?, ?)";
                 PreparedStatement statement = connection.prepareStatement(query);
                 statement.setString(1, login);
-                ResultSet resultSet = statement.executeQuery();
+                statement.setString(2, password);
+                statement.setString(3, email);
+                int rowsAffected = statement.executeUpdate();
 
-                while (resultSet.next()) {
-                    count++;
-                }
-                if (count != 0) {
-                    System.out.println("User with the given login already exists");
+                if (rowsAffected == 1) {
+                    connection.commit(); // commit the transaction
+                    System.out.println("User registered successfully");
+                    return ResponseEntity.status(HttpStatus.OK).body("User registered successfully");
                 } else {
-                    // Create SQL query
-                    query = "INSERT INTO uzytkownicy (login, haslo, email) VALUES (?, ?, ?)";
-
-                    // Prepare SQL statement with parameters
-                    PreparedStatement statement2 = connection.prepareStatement(query);
-                    statement2.setString(1, login);
-                    statement2.setString(2, password);
-                    statement2.setString(3, email);
-
-                    // Execute SQL statement
-                    int rowsAffected = statement2.executeUpdate();
-
-                    if (rowsAffected == 1) { // If exactly one row was inserted
-                        connection.commit(); // commit the transaction
-                    } else {
-                        connection.rollback(); // rollback the transaction
-                    }
-
-                    // Close Statement and Connection objects
-                    statement.close();
-                    statement2.close();
+                    connection.rollback(); // rollback the transaction
+                    System.out.println("User registration failed");
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("User registration failed");
                 }
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -509,6 +508,8 @@ public class MyApiApplication {
                 connect.close(); // close the database connection
             }
         }
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
 
 
