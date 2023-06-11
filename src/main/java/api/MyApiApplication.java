@@ -236,7 +236,7 @@ public class MyApiApplication {
         if (connection != null) {
             try {
 
-                String query = "SELECT id_miejsca FROM bilet WHERE id_seansu = ?";
+                String query = "SELECT miejsca.rzad, miejsca.fotel FROM bilet INNER JOIN miejsca ON bilet.id_miejsca=miejsca.id_miejsca WHERE bilet.id_seansu = ?";
 
                 PreparedStatement statement = connection.prepareStatement(query);
                 statement.setInt(1, id_seansu);
@@ -247,10 +247,12 @@ public class MyApiApplication {
                 ObjectMapper objectMapper = new ObjectMapper();
                 ArrayNode seatsArray = objectMapper.createArrayNode();
                 while (resultSet.next()) {
-                    int seatId = resultSet.getInt("id_miejsca");
+                    int row = resultSet.getInt("rzad");
+                    int col = resultSet.getInt("fotel");
 
                     ObjectNode movieObject = objectMapper.createObjectNode();
-                    movieObject.put("id_miejsca", seatId);
+                    movieObject.put("rzad", row);
+                    movieObject.put("fotel", col);
 
                     seatsArray.add(movieObject);
                 }
