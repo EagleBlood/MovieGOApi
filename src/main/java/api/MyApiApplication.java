@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.sql.*;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.List;
 
@@ -36,7 +38,7 @@ public class MyApiApplication {
                 String query = "SELECT f.id_filmu, f.tytul, f.czas_trwania, f.ocena, f.opis, f.okladka, f.cena, g.nazwa_gatunku, s.data, s.pora_emisji, s.id_seansu " +
                         "FROM film f " +
                         "INNER JOIN gatunek g ON f.id_gatunku = g.id_gatunku " +
-                        "INNER JOIN seanse s ON f.id_filmu = s.id_filmu";
+                        "INNER JOIN seanse s ON f.id_filmu = s.id_filmu;";
 
                 // Execute the query
                 Statement statement = connection.createStatement();
@@ -52,7 +54,7 @@ public class MyApiApplication {
                     int czas_trwania = resultSet.getInt("czas_trwania");
                     double ocena = resultSet.getDouble("ocena");
                     String opis = resultSet.getString("opis");
-                    Blob okladka = resultSet.getBlob("okladka");
+                    String okladka = resultSet.getString("okladka");
                     double cena = resultSet.getDouble("cena");
 
                     String nazwa_gatunku = resultSet.getString("nazwa_gatunku");
@@ -62,8 +64,8 @@ public class MyApiApplication {
                     int id_seansu = resultSet.getInt("id_seansu");
 
 
-                    byte[] imageBytes = okladka.getBytes(1, (int) okladka.length()); // Read the Blob data as a byte array
-                    String base64Image = Base64.getEncoder().encodeToString(imageBytes); // Convert the byte array to a Base64 encoded string
+//                    byte[] imageBytes = okladka.getBytes(1, (int) okladka.length()); // Read the Blob data as a byte array
+//                    String base64Image = Base64.getEncoder().encodeToString(imageBytes); // Convert the byte array to a Base64 encoded string
 
                     // Append movie details to the response string
                     ObjectNode movieObject = objectMapper.createObjectNode();
@@ -72,7 +74,7 @@ public class MyApiApplication {
                     movieObject.put("czas_trwania", czas_trwania);
                     movieObject.put("ocena", ocena);
                     movieObject.put("opis", opis);
-                    movieObject.put("okladka", base64Image);
+                    movieObject.put("okladka", okladka);
                     movieObject.put("cena", cena);
 
                     movieObject.put("nazwa_gatunku", nazwa_gatunku);
@@ -274,8 +276,6 @@ public class MyApiApplication {
         return seatsJson;
     }
 
-
-
     @PostMapping("/book")
     public ResponseEntity<BookResponse> bookTickets(@RequestBody BookResponse bookResponse) {
         try {
@@ -352,47 +352,67 @@ public class MyApiApplication {
     }
 
     @GetMapping("/login")
-    public String checkLogin(@RequestParam(name = "login") String login, @RequestParam(name = "password") String password){
-        String logSucces = "false";
-        int count = 0;
+    public ResponseEntity<Object> checkLogin(@RequestParam(name = "login") String login, @RequestParam(name = "password") String password) {
         Connect connect = new Connect();
         Connection connection = connect.getConnection();
         if (connection != null) {
             try {
-                // Tworzenie zapytania SQL
-                String query = "SELECT id_uzyt FROM uzytkownicy WHERE login = ? AND haslo = ?";
-
+                String query = "SELECT * FROM uzytkownicy WHERE login = ? AND haslo = ?";
                 PreparedStatement statement = connection.prepareStatement(query);
-
-                // Ustawienie wartości parametrów
                 statement.setString(1, login);
                 statement.setString(2, password);
-
-                // Wykonanie zapytania
                 ResultSet resultSet = statement.executeQuery();
 
+                if (resultSet.next()) {
+                    int id = resultSet.getInt("id_uzyt");
+                    String username = resultSet.getString("login");
+                    String name = resultSet.getString("imie");
+                    String surname = resultSet.getString("nazwisko");
+                    String email = resultSet.getString("email");
+                    String userPassword = resultSet.getString("haslo");
+                    String address = resultSet.getString("adres");
+                    String birthdate = resultSet.getString("data_ur");
+                    int number = resultSet.getInt("numer_tel");
 
-                // Przetwarzanie wyników zapytania
-                while(resultSet.next()){
-                    count++;
-                }
-                if(count>0){
-                    logSucces="true";
-                }
-                // Zamknięcie obiektów ResultSet i Statement
-                resultSet.close();
-                statement.close();
+                    // Tworzenie obiektu JSON
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    ObjectNode userJson = objectMapper.createObjectNode();
+                    userJson.put("id", id);
+                    userJson.put("username", username);
+                    userJson.put("name", name);
+                    userJson.put("surname", surname);
+                    userJson.put("email", email);
+                    userJson.put("password", userPassword);
+                    userJson.put("address", address);
+                    userJson.put("birthdate", birthdate);
+                    userJson.put("number", number);
 
+                    // Zamknięcie obiektów ResultSet i Statement
+                    resultSet.close();
+                    statement.close();
+
+                    // Zwróć obiekt JSON jako odpowiedź
+                    return new ResponseEntity<>(userJson.toString(), HttpStatus.OK);
+                } else {
+                    // Zamknięcie obiektów ResultSet i Statement
+                    resultSet.close();
+                    statement.close();
+
+                    // Jeśli nie znaleziono użytkownika, zwróć odpowiedź z błędem
+                    return new ResponseEntity<>("User not found", HttpStatus.NOT_FOUND);
+                }
             } catch (SQLException e) {
                 e.printStackTrace();
+                // Jeśli wystąpił błąd SQL, zwróć odpowiedź z błędem
+                return new ResponseEntity<>("Error occurred", HttpStatus.INTERNAL_SERVER_ERROR);
             } finally {
                 connect.close(); // Zamknięcie połączenia
             }
-
+        } else {
+            // Jeśli nie udało się nawiązać połączenia z bazą danych, zwróć odpowiedź z błędem
+            return new ResponseEntity<>("Database connection failed", HttpStatus.INTERNAL_SERVER_ERROR);
         }
-        return logSucces;
     }
-
     @GetMapping("/users/{login}")
     public ResponseEntity<String> getUserByUsername(@PathVariable("login") String login) {
         Connect connect = new Connect();
@@ -507,6 +527,111 @@ public class MyApiApplication {
                     ex.printStackTrace();
                 }
                 return ResponseEntity.ok(new RegistrationResponse("An error occurred during registration"));
+            } finally {
+                connect.close(); // close the database connection
+            }
+        }
+        return null;
+    }
+
+    @PostMapping("/user/data/{id}")
+    public ResponseEntity<UserData> editUser(@PathVariable("id") String userID, @RequestBody UserData userData){
+        String name = userData.getName();
+        String surname = userData.getSurname();
+        String email = userData.getEmail();
+        String phoneNumber = userData.getPhoneNumber();
+        String homeAddress = userData.getHomeAddress();
+        String birthDate = userData.getBirthDate();
+
+        int parseUserID = Integer.parseInt(userID);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy"); // Określ format daty
+        LocalDate localDate = LocalDate.parse(birthDate, formatter); // Parsuj string jako LocalDate
+        Date sqlDate = Date.valueOf(localDate);
+        int parsePhoneNumber = Integer.parseInt(phoneNumber);
+
+        Connect connect = new Connect();
+        Connection connection = connect.getConnection();
+        if (connection != null) {
+            try {
+                connection.setAutoCommit(false); // enable manual transaction management
+
+
+                // Create SQL query
+                String query = "UPDATE uzytkownicy SET imie = ?, nazwisko = ?, email = ?, adres = ?, data_ur = ?, numer_tel = ? WHERE uzytkownicy.id_uzyt = ?";
+
+                    // Prepare SQL statement with parameters
+                PreparedStatement statement = connection.prepareStatement(query);
+                statement.setString(1, name);
+                statement.setString(2, surname);
+                statement.setString(3, email);
+                statement.setString(4, homeAddress);
+                statement.setDate(5, sqlDate);
+                statement.setInt(6, parsePhoneNumber);
+                statement.setInt(7, parseUserID);
+
+                // Execute SQL statement
+                int rowsAffected = statement.executeUpdate();
+
+                if (rowsAffected == 1) { // If exactly one row was inserted
+                    connection.commit(); // commit the transaction
+                    return ResponseEntity.ok(new UserData("User changed data successfully"));
+                } else {
+                    connection.rollback(); // rollback the transaction
+                    return ResponseEntity.ok(new UserData("Failed to change user data"));
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+                try {
+                    connection.rollback(); // rollback the transaction in case of SQL error
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+                return ResponseEntity.ok(new UserData("An error occurred during changing data"));
+            } finally {
+                connect.close(); // close the database connection
+            }
+        }
+        return null;
+    }
+
+    @PostMapping("/user/login/{id}")
+    public ResponseEntity<String> editUserLogin(@PathVariable("id") String userID, @RequestParam(name = "login") String login){
+
+        int parseUserID = Integer.parseInt(userID);
+
+        Connect connect = new Connect();
+        Connection connection = connect.getConnection();
+        if (connection != null) {
+            try {
+                connection.setAutoCommit(false); // enable manual transaction management
+
+
+                // Create SQL query
+                String query = "UPDATE uzytkownicy SET login = ? WHERE uzytkownicy.id_uzyt = ?";
+
+                // Prepare SQL statement with parameters
+                PreparedStatement statement = connection.prepareStatement(query);
+                statement.setString(1, login);
+                statement.setInt(2, parseUserID);
+
+                // Execute SQL statement
+                int rowsAffected = statement.executeUpdate();
+
+                if (rowsAffected == 1) { // If exactly one row was inserted
+                    connection.commit(); // commit the transaction
+                    return ResponseEntity.status(HttpStatus.OK).build();
+                } else {
+                    connection.rollback(); // rollback the transaction
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+                try {
+                    connection.rollback(); // rollback the transaction in case of SQL error
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
             } finally {
                 connect.close(); // close the database connection
             }
