@@ -364,6 +364,9 @@ public class MyApiApplication {
                 ResultSet resultSet = statement.executeQuery();
 
                 if (resultSet.next()) {
+
+                    System.out.println("Logowanie");
+
                     int id = resultSet.getInt("id_uzyt");
                     String username = resultSet.getString("login");
                     String name = resultSet.getString("imie");
@@ -394,23 +397,25 @@ public class MyApiApplication {
                     // Zwróć obiekt JSON jako odpowiedź
                     return new ResponseEntity<>(userJson.toString(), HttpStatus.OK);
                 } else {
+
+                    System.out.println("Błędne logowanie");
                     // Zamknięcie obiektów ResultSet i Statement
                     resultSet.close();
                     statement.close();
 
                     // Jeśli nie znaleziono użytkownika, zwróć odpowiedź z błędem
-                    return new ResponseEntity<>("User not found", HttpStatus.NOT_FOUND);
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
                 }
             } catch (SQLException e) {
                 e.printStackTrace();
                 // Jeśli wystąpił błąd SQL, zwróć odpowiedź z błędem
-                return new ResponseEntity<>("Error occurred", HttpStatus.INTERNAL_SERVER_ERROR);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
             } finally {
                 connect.close(); // Zamknięcie połączenia
             }
         } else {
             // Jeśli nie udało się nawiązać połączenia z bazą danych, zwróć odpowiedź z błędem
-            return new ResponseEntity<>("Database connection failed", HttpStatus.INTERNAL_SERVER_ERROR);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
     @GetMapping("/users/{login}")
@@ -501,10 +506,10 @@ public class MyApiApplication {
                 emailStatement.setString(1, email);
                 ResultSet emailResultSet = emailStatement.executeQuery();
 
-                if (resultSet.next()) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new RegistrationResponse("User with the given login already exists"));
-                } else if (emailResultSet.next()) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new RegistrationResponse("User with the given email already exists"));
+                if (emailResultSet.next()) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new RegistrationResponse("Konto z podanym adresem e-mail już istnieje"));
+                } else if (resultSet.next()) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new RegistrationResponse("Podany login jest już zajęty"));
                 } else {
                     // Create SQL query
                     query = "INSERT INTO uzytkownicy (login, haslo, email) VALUES (?, ?, ?)";
@@ -584,8 +589,12 @@ public class MyApiApplication {
 
                         int rowsAffected = statement.executeUpdate();
 
+                        emailResultSet.close();
+                        statement.close();
+
                         if (rowsAffected == 1) {
                             connection.commit();
+
                             return ResponseEntity.ok( new UserData("User data updated successfully"));
                         } else {
                             connection.rollback();
@@ -617,6 +626,8 @@ public class MyApiApplication {
 
                                 int rowsAffected = statement.executeUpdate();
 
+                                emailExistResultSet.close();
+                                statement.close();
                                 if (rowsAffected == 1) {
                                     connection.commit();
                                     return ResponseEntity.ok(new UserData("User data updated successfully"));
@@ -676,6 +687,8 @@ public class MyApiApplication {
                         // Execute SQL statement
                         int rowsAffected = statement.executeUpdate();
 
+                        loginResultSet.close();
+                        statement.close();
                         if (rowsAffected == 1) { // If exactly one row was inserted
                             connection.commit(); // commit the transaction
                             return ResponseEntity.status(HttpStatus.OK).build();
@@ -704,6 +717,8 @@ public class MyApiApplication {
                                 // Execute SQL statement
                                 int rowsAffected = statement.executeUpdate();
 
+                                loginExistResultSet.close();
+                                statement.close();
                                 if (rowsAffected == 1) { // If exactly one row was inserted
                                     connection.commit(); // commit the transaction
                                     return ResponseEntity.status(HttpStatus.OK).build();
