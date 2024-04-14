@@ -365,8 +365,6 @@ public class MyApiApplication {
 
                 if (resultSet.next()) {
 
-                    System.out.println("Logowanie");
-
                     int id = resultSet.getInt("id_uzyt");
                     String username = resultSet.getString("login");
                     String name = resultSet.getString("imie");
@@ -397,8 +395,6 @@ public class MyApiApplication {
                     // Zwróć obiekt JSON jako odpowiedź
                     return new ResponseEntity<>(userJson.toString(), HttpStatus.OK);
                 } else {
-
-                    System.out.println("Błędne logowanie");
                     // Zamknięcie obiektów ResultSet i Statement
                     resultSet.close();
                     statement.close();
@@ -418,6 +414,7 @@ public class MyApiApplication {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
+
     @GetMapping("/users/{login}")
     public ResponseEntity<String> getUserByUsername(@PathVariable("login") String login) {
         Connect connect = new Connect();
@@ -546,8 +543,8 @@ public class MyApiApplication {
         return null;
     }
 
-    @PostMapping("/user/data/{id}")
-    public ResponseEntity<UserData> editUser(@PathVariable("id") String userID, @RequestBody UserData userData){
+    @PostMapping("/user/data")
+    public ResponseEntity<UserData> editUser(@RequestParam(name = "id") String userID, @RequestBody UserData userData){
         String name = userData.getName();
         String surname = userData.getSurname();
         String email = userData.getEmail();
@@ -654,8 +651,8 @@ public class MyApiApplication {
         return null;
     }
 
-    @PostMapping("/user/login/{id}")
-    public ResponseEntity<String> editUserLogin(@PathVariable("id") String userID, @RequestParam(name = "login") String login){
+    @PostMapping("/user/login")
+    public ResponseEntity<String> editUserLogin(@RequestParam(name = "id") String userID, @RequestParam(name = "login") String login){
 
         int parseUserID = Integer.parseInt(userID);
 
@@ -745,6 +742,82 @@ public class MyApiApplication {
         return null;
     }
 
+    @PostMapping("/user/email")
+    public ResponseEntity<String> forgotPassUserEmail(@RequestParam(name = "email") String email){
+
+        Connect connect = new Connect();
+        Connection connection = connect.getConnection();
+        if (connection != null) {
+            try {
+                connection.setAutoCommit(false); // enable manual transaction management
+
+                String emailQuery = "SELECT id_uzyt FROM uzytkownicy WHERE uzytkownicy.email = ?";
+                PreparedStatement emailStatement = connection.prepareStatement(emailQuery);
+                emailStatement.setString(1, email);
+                ResultSet resultSet = emailStatement.executeQuery();
 
 
+
+                if (resultSet.next()) {
+                    int userID = resultSet.getInt("id_uzyt");
+                    resultSet.close();
+                    emailStatement.close();
+                    return ResponseEntity.ok().body(String.valueOf(userID));
+                } else {
+                    resultSet.close();
+                    emailStatement.close();
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+                try {
+                    connection.rollback(); // rollback the transaction in case of SQL error
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            } finally {
+                connect.close(); // close the database connection
+            }
+        }
+        return null;
+    }
+
+    @PostMapping("/user/password")
+    public ResponseEntity<String> forgotPassUserPassword(@RequestParam(name = "id") String userID, @RequestParam(name = "password") String password){
+
+        int parseUserID = Integer.parseInt(userID);
+
+        Connect connect = new Connect();
+        Connection connection = connect.getConnection();
+        if (connection != null) {
+            try {
+                connection.setAutoCommit(false); // enable manual transaction management
+
+                String passQuery = "UPDATE uzytkownicy SET haslo = ? WHERE uzytkownicy.id_uzyt = ?";
+                PreparedStatement passwdStatement = connection.prepareStatement(passQuery);
+                passwdStatement.setString(1, password);
+                passwdStatement.setInt(2, parseUserID); // Poprawna numeracja parametru
+                int rowsAffected = passwdStatement.executeUpdate(); // Użycie executeUpdate() do zapytania aktualizacji
+
+                if (rowsAffected > 0) {
+                    connection.commit(); // potwierdzenie transakcji w przypadku sukcesu
+                    return ResponseEntity.status(HttpStatus.OK).build();
+                } else {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+                try {
+                    connection.rollback(); // rollback the transaction in case of SQL error
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            } finally {
+                connect.close(); // close the database connection
+            }
+        }
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+    }
 }
