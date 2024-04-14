@@ -496,8 +496,15 @@ public class MyApiApplication {
                 statement.setString(1, login);
                 ResultSet resultSet = statement.executeQuery();
 
+                String emailQuery = "SELECT id_uzyt FROM uzytkownicy WHERE email = ?";
+                PreparedStatement emailStatement = connection.prepareStatement(emailQuery);
+                emailStatement.setString(1, email);
+                ResultSet emailResultSet = emailStatement.executeQuery();
+
                 if (resultSet.next()) {
-                    return ResponseEntity.ok(new RegistrationResponse("User with the given login already exists"));
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new RegistrationResponse("User with the given login already exists"));
+                } else if (emailResultSet.next()) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new RegistrationResponse("User with the given email already exists"));
                 } else {
                     // Create SQL query
                     query = "INSERT INTO uzytkownicy (login, haslo, email) VALUES (?, ?, ?)";
@@ -516,7 +523,7 @@ public class MyApiApplication {
                         return ResponseEntity.ok(new RegistrationResponse("User registered successfully"));
                     } else {
                         connection.rollback(); // rollback the transaction
-                        return ResponseEntity.ok(new RegistrationResponse("Failed to register user"));
+                        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new RegistrationResponse("Failed to register user"));
                     }
                 }
             } catch (SQLException e) {
@@ -555,29 +562,71 @@ public class MyApiApplication {
             try {
                 connection.setAutoCommit(false); // enable manual transaction management
 
+                String emailQuery = "SELECT email FROM uzytkownicy WHERE uzytkownicy.id_uzyt = ?";
+                PreparedStatement emailStatement = connection.prepareStatement(emailQuery);
+                emailStatement.setInt(1, parseUserID);
+                ResultSet emailResultSet = emailStatement.executeQuery();
 
-                // Create SQL query
-                String query = "UPDATE uzytkownicy SET imie = ?, nazwisko = ?, email = ?, adres = ?, data_ur = ?, numer_tel = ? WHERE uzytkownicy.id_uzyt = ?";
+                if (emailResultSet.next()) {
+                    String currentEmail = emailResultSet.getString("email");
 
-                    // Prepare SQL statement with parameters
-                PreparedStatement statement = connection.prepareStatement(query);
-                statement.setString(1, name);
-                statement.setString(2, surname);
-                statement.setString(3, email);
-                statement.setString(4, homeAddress);
-                statement.setDate(5, sqlDate);
-                statement.setInt(6, parsePhoneNumber);
-                statement.setInt(7, parseUserID);
+                    // If the new email is the same as the current one, proceed with the update
+                    if (currentEmail.equals(email)) {
+                        String updateQuery = "UPDATE uzytkownicy SET imie = ?, nazwisko = ?, email = ?, adres = ?, data_ur = ?, numer_tel = ? WHERE id_uzyt = ?";
+                        PreparedStatement statement = connection.prepareStatement(updateQuery);
+                        statement.setString(1, name);
+                        statement.setString(2, surname);
+                        statement.setString(3, email);
+                        statement.setString(4, homeAddress);
+                        statement.setDate(5, sqlDate);
+                        statement.setInt(6, parsePhoneNumber);
+                        statement.setInt(7, parseUserID);
 
-                // Execute SQL statement
-                int rowsAffected = statement.executeUpdate();
+                        int rowsAffected = statement.executeUpdate();
 
-                if (rowsAffected == 1) { // If exactly one row was inserted
-                    connection.commit(); // commit the transaction
-                    return ResponseEntity.ok(new UserData("User changed data successfully"));
-                } else {
-                    connection.rollback(); // rollback the transaction
-                    return ResponseEntity.ok(new UserData("Failed to change user data"));
+                        if (rowsAffected == 1) {
+                            connection.commit();
+                            return ResponseEntity.ok( new UserData("User data updated successfully"));
+                        } else {
+                            connection.rollback();
+                            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new UserData("Failed to update user data"));
+                        }
+                    } else {
+                        // Check if the new email already exists in the database
+                        String emailExistQuery = "SELECT COUNT(*) AS count FROM uzytkownicy WHERE email = ?";
+                        PreparedStatement emailExistStatement = connection.prepareStatement(emailExistQuery);
+                        emailExistStatement.setString(1, email);
+                        ResultSet emailExistResultSet = emailExistStatement.executeQuery();
+
+                        if (emailExistResultSet.next()) {
+                            int count = emailExistResultSet.getInt("count");
+
+                            if(count > 0) {
+                                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new UserData("User with the given email already exists"));
+                            } else {
+                                // Proceed with the update
+                                String updateQuery = "UPDATE uzytkownicy SET imie = ?, nazwisko = ?, email = ?, adres = ?, data_ur = ?, numer_tel = ? WHERE id_uzyt = ?";
+                                PreparedStatement statement = connection.prepareStatement(updateQuery);
+                                statement.setString(1, name);
+                                statement.setString(2, surname);
+                                statement.setString(3, email);
+                                statement.setString(4, homeAddress);
+                                statement.setDate(5, sqlDate);
+                                statement.setInt(6, parsePhoneNumber);
+                                statement.setInt(7, parseUserID);
+
+                                int rowsAffected = statement.executeUpdate();
+
+                                if (rowsAffected == 1) {
+                                    connection.commit();
+                                    return ResponseEntity.ok(new UserData("User data updated successfully"));
+                                } else {
+                                    connection.rollback();
+                                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new UserData("Failed to update user data"));
+                                }
+                            }
+                        }
+                    }
                 }
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -605,24 +654,66 @@ public class MyApiApplication {
             try {
                 connection.setAutoCommit(false); // enable manual transaction management
 
+                String loginQuery = "SELECT login FROM uzytkownicy WHERE uzytkownicy.id_uzyt = ?";
+                PreparedStatement loginStatement = connection.prepareStatement(loginQuery);
+                loginStatement.setInt(1, parseUserID);
+                ResultSet loginResultSet = loginStatement.executeQuery();
 
-                // Create SQL query
-                String query = "UPDATE uzytkownicy SET login = ? WHERE uzytkownicy.id_uzyt = ?";
 
-                // Prepare SQL statement with parameters
-                PreparedStatement statement = connection.prepareStatement(query);
-                statement.setString(1, login);
-                statement.setInt(2, parseUserID);
+                if (loginResultSet.next()){
 
-                // Execute SQL statement
-                int rowsAffected = statement.executeUpdate();
+                    String currentLogin = loginResultSet.getString("login");
 
-                if (rowsAffected == 1) { // If exactly one row was inserted
-                    connection.commit(); // commit the transaction
-                    return ResponseEntity.status(HttpStatus.OK).build();
-                } else {
-                    connection.rollback(); // rollback the transaction
-                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+                    if (currentLogin.equals(login)){
+
+                        String query = "UPDATE uzytkownicy SET login = ? WHERE uzytkownicy.id_uzyt = ?";
+
+                        // Prepare SQL statement with parameters
+                        PreparedStatement statement = connection.prepareStatement(query);
+                        statement.setString(1, login);
+                        statement.setInt(2, parseUserID);
+
+                        // Execute SQL statement
+                        int rowsAffected = statement.executeUpdate();
+
+                        if (rowsAffected == 1) { // If exactly one row was inserted
+                            connection.commit(); // commit the transaction
+                            return ResponseEntity.status(HttpStatus.OK).build();
+                        } else {
+                            connection.rollback(); // rollback the transaction
+                            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+                        }
+                    } else {
+                        String loginExistQuery = "SELECT COUNT(*) AS count FROM uzytkownicy WHERE login = ?";
+                        PreparedStatement loginExistStatement = connection.prepareStatement(loginExistQuery);
+                        loginExistStatement.setString(1, login);
+                        ResultSet loginExistResultSet = loginExistStatement.executeQuery();
+
+                        if (loginExistResultSet.next()) {
+                            int count = loginExistResultSet.getInt("count");
+                            if(count > 0) {
+                                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("User with the given login already exists");
+                            } else {
+                                String query = "UPDATE uzytkownicy SET login = ? WHERE uzytkownicy.id_uzyt = ?";
+
+                                // Prepare SQL statement with parameters
+                                PreparedStatement statement = connection.prepareStatement(query);
+                                statement.setString(1, login);
+                                statement.setInt(2, parseUserID);
+
+                                // Execute SQL statement
+                                int rowsAffected = statement.executeUpdate();
+
+                                if (rowsAffected == 1) { // If exactly one row was inserted
+                                    connection.commit(); // commit the transaction
+                                    return ResponseEntity.status(HttpStatus.OK).build();
+                                } else {
+                                    connection.rollback(); // rollback the transaction
+                                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+                                }
+                            }
+                        }
+                    }
                 }
             } catch (SQLException e) {
                 e.printStackTrace();
