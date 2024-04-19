@@ -15,10 +15,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.sql.*;
+import java.sql.Date;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.Base64;
-import java.util.List;
+import java.util.*;
 
 @SpringBootApplication
 @RestController
@@ -35,58 +35,148 @@ public class MyApiApplication {
         if (connection != null) {
             try {
                 // Create SQL query
-                String query = "SELECT f.id_filmu, f.tytul, f.czas_trwania, f.ocena, f.opis, f.okladka, f.cena, g.nazwa_gatunku, s.data, s.pora_emisji, s.id_seansu " +
+                String query = "SELECT f.id_filmu, f.tytul, f.czas_trwania, f.ocena, f.opis, f.okladka, f.cena, g.nazwa_gatunku " +
                         "FROM film f " +
-                        "INNER JOIN gatunek g ON f.id_gatunku = g.id_gatunku " +
-                        "INNER JOIN seanse s ON f.id_filmu = s.id_filmu;";
+                        "INNER JOIN gatunek g ON f.id_gatunku = g.id_gatunku;";
 
                 // Execute the query
                 Statement statement = connection.createStatement();
                 ResultSet resultSet = statement.executeQuery(query);
 
-                // Process query results
+
                 ObjectMapper objectMapper = new ObjectMapper();
                 ArrayNode moviesArray = objectMapper.createArrayNode();
+
+
                 while (resultSet.next()) {
-                    // Get values from query result columns
-                    int id_filmu = resultSet.getInt("id_filmu");
-                    String tytul = resultSet.getString("tytul");
-                    int czas_trwania = resultSet.getInt("czas_trwania");
-                    double ocena = resultSet.getDouble("ocena");
-                    String opis = resultSet.getString("opis");
-                    String okladka = resultSet.getString("okladka");
-                    double cena = resultSet.getDouble("cena");
 
-                    String nazwa_gatunku = resultSet.getString("nazwa_gatunku");
-
-                    String data = resultSet.getString("data");
-                    String pora_emisji = resultSet.getString("pora_emisji");
-                    int id_seansu = resultSet.getInt("id_seansu");
-
-
-//                    byte[] imageBytes = okladka.getBytes(1, (int) okladka.length()); // Read the Blob data as a byte array
-//                    String base64Image = Base64.getEncoder().encodeToString(imageBytes); // Convert the byte array to a Base64 encoded string
-
-                    // Append movie details to the response string
                     ObjectNode movieObject = objectMapper.createObjectNode();
-                    movieObject.put("id_filmu", id_filmu);
-                    movieObject.put("tytul", tytul);
-                    movieObject.put("czas_trwania", czas_trwania);
-                    movieObject.put("ocena", ocena);
-                    movieObject.put("opis", opis);
-                    movieObject.put("okladka", okladka);
-                    movieObject.put("cena", cena);
-
-                    movieObject.put("nazwa_gatunku", nazwa_gatunku);
-
-                    movieObject.put("data", data);
-                    movieObject.put("pora_emisji", pora_emisji);
-                    movieObject.put("id_seansu", id_seansu);
+                    movieObject.put("movieId", resultSet.getInt("id_filmu"));
+                    movieObject.put("movieTitle", resultSet.getString("tytul"));
+                    movieObject.put("movieDuration", resultSet.getInt("czas_trwania"));
+                    movieObject.put("movieScore", resultSet.getDouble("ocena"));
+                    movieObject.put("movieDescription", resultSet.getString("opis"));
+                    movieObject.put("movieCover", resultSet.getString("okladka"));
+                    movieObject.put("moviePrice", resultSet.getDouble("cena"));
+                    movieObject.put("movieGenre", resultSet.getString("nazwa_gatunku"));
 
                     moviesArray.add(movieObject);
                 }
 
-                // Close ResultSet and Statement objects
+
+
+                resultSet.close();
+                statement.close();
+
+                // Convert the moviesArray to a JSON string
+                String moviesJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(moviesArray);
+
+                // Set the response headers
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+
+                // Return the response with the JSON string and headers
+                return new ResponseEntity<>(moviesJson, headers, HttpStatus.OK);
+
+            } catch (SQLException | IOException e) {
+                e.printStackTrace();
+            } finally {
+                connect.close(); // Close the connection
+            }
+        }
+
+        // Return a response indicating no movies found
+        return ResponseEntity.notFound().build();
+    }
+
+    @GetMapping("/schedules")
+    public ResponseEntity<String> getSchedules() {
+        Connect connect = new Connect();
+        Connection connection = connect.getConnection();
+        if (connection != null) {
+            try {
+                // Create SQL query
+                String query = "SELECT s.data, s.pora_emisji, s.id_seansu, s.id_sala, s.id_filmu " +
+                        "FROM seanse s;";
+
+                // Execute the query
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(query);
+
+
+                ObjectMapper objectMapper = new ObjectMapper();
+                ArrayNode moviesArray = objectMapper.createArrayNode();
+
+                Map<String, Map<String, List<Map<String, Object>>>> groupedData = new HashMap<>();
+
+                while (resultSet.next()) {
+                    String data = resultSet.getString("data");
+                    String time = resultSet.getString("pora_emisji");
+
+                    // Tworzenie obiektu z danymi filmu
+                    Map<String, Object> movieData = new HashMap<>();
+                    movieData.put("id_seansu", resultSet.getInt("id_seansu"));
+                    movieData.put("id_sala", resultSet.getInt("id_sala"));
+                    movieData.put("id_filmu", resultSet.getInt("id_filmu"));
+
+                    // Sprawdzenie, czy istnieje już klucz dla danej daty
+                    if (groupedData.containsKey(data)) {
+                        Map<String, List<Map<String, Object>>> timeMap = groupedData.get(data);
+
+                        // Sprawdzenie, czy istnieje już klucz dla danej godziny
+                        if (timeMap.containsKey(time)) {
+                            List<Map<String, Object>> movies = timeMap.get(time);
+                            movies.add(movieData);
+                        } else {
+                            List<Map<String, Object>> movies = new ArrayList<>();
+                            movies.add(movieData);
+                            timeMap.put(time, movies);
+                        }
+                    } else {
+                        Map<String, List<Map<String, Object>>> timeMap = new HashMap<>();
+                        List<Map<String, Object>> movies = new ArrayList<>();
+                        movies.add(movieData);
+                        timeMap.put(time, movies);
+                        groupedData.put(data, timeMap);
+                    }
+                }
+
+// Tworzenie struktury JSON z pogrupowanymi danymi
+                for (Map.Entry<String, Map<String, List<Map<String, Object>>>> entry : groupedData.entrySet()) {
+                    String data = entry.getKey();
+                    Map<String, List<Map<String, Object>>> timeMap = entry.getValue();
+
+                    ObjectNode dataObject = objectMapper.createObjectNode();
+                    dataObject.put("date", data);
+
+                    ArrayNode showsArray = objectMapper.createArrayNode();
+
+                    for (Map.Entry<String, List<Map<String, Object>>> timeEntry : timeMap.entrySet()) {
+                        String time = timeEntry.getKey();
+                        List<Map<String, Object>> movies = timeEntry.getValue();
+
+                        ObjectNode showsObject = objectMapper.createObjectNode();
+                        showsObject.put("time", time);
+
+                        ArrayNode moviesArrayNode = objectMapper.createArrayNode();
+                        for (Map<String, Object> movie : movies) {
+                            ObjectNode movieObject = objectMapper.createObjectNode();
+                            movieObject.put("showId", (int) movie.get("id_seansu"));
+                            movieObject.put("hallScheduleId", (int) movie.get("id_sala"));
+                            movieObject.put("movieScheduleId", (int) movie.get("id_filmu"));
+                            moviesArrayNode.add(movieObject);
+                        }
+
+                        showsObject.set("movies", moviesArrayNode);
+                        showsArray.add(showsObject);
+                    }
+
+                    dataObject.set("shows", showsArray);
+                    moviesArray.add(dataObject);
+                }
+
+
+
                 resultSet.close();
                 statement.close();
 
