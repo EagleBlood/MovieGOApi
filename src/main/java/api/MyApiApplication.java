@@ -404,8 +404,19 @@ public class MyApiApplication {
                     if (generatedKeys.next()) {
                         orderId = generatedKeys.getInt(1);
 
-                        // Insert tickets
+                       // Insert tickets
                         for (Ticket ticket : ticketList) {
+                            String checkSeatQuery = "SELECT * FROM miejsca WHERE id_miejsca = ?";
+                            PreparedStatement checkSeatStatement = connection.prepareStatement(checkSeatQuery);
+                            checkSeatStatement.setInt(1, ticket.getId_miejsca());
+                            ResultSet checkSeatResult = checkSeatStatement.executeQuery();
+
+                            if (!checkSeatResult.next()) {
+                                System.out.println("Seat with id " + ticket.getId_miejsca() + " does not exist.");
+                                connection.rollback(); // Rollback the transaction if the seat does not exist
+                                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+                            }
+
                             String insertTicketQuery = "INSERT INTO bilet (id_biletu, id_rezer, id_seansu, id_miejsca, cena) VALUES (NULL, ?, ?, ?, ?)";
                             PreparedStatement insertTicketStatement = connection.prepareStatement(insertTicketQuery);
                             insertTicketStatement.setInt(1, orderId);
