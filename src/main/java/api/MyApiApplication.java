@@ -322,57 +322,6 @@ public class MyApiApplication {
         return moviesJson;
     }
 
-//    @GetMapping("/seats")
-//    public String getSeats(){
-//        Connect connect = new Connect();
-//        Connection connection = connect.getConnection();
-//        String seatsJson = "No movies found";
-//        if (connection != null) {
-//            try {
-//                // Create SQL query
-//                String query = "SELECT id_miejsca, rzad, fotel FROM miejsca";
-//
-//                // Execute the query
-//                Statement statement = connection.createStatement();
-//                ResultSet resultSet = statement.executeQuery(query);
-//
-//                // Process query results
-//                seatsJson = "";
-//
-//                ObjectMapper objectMapper = new ObjectMapper();
-//                ArrayNode seatsArray = objectMapper.createArrayNode();
-//                while (resultSet.next()) {
-//                    // Get values from query result columns
-//                    int seatId = resultSet.getInt("id_miejsca");
-//                    int row = resultSet.getInt("rzad");
-//                    int armchair = resultSet.getInt("fotel");
-//
-//                    // Append movie details to the response string
-//                    ObjectNode movieObject = objectMapper.createObjectNode();
-//                    movieObject.put("id_miejsca", seatId);
-//                    movieObject.put("rzad", row);
-//                    movieObject.put("fotel", armchair);
-//
-//                    seatsArray.add(movieObject);
-//                }
-//
-//                seatsJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(seatsArray);
-//
-//                // Close ResultSet and Statement objects
-//                resultSet.close();
-//                statement.close();
-//
-//            } catch (SQLException e) {
-//                e.printStackTrace();
-//            } catch (JsonProcessingException e) {
-//                throw new RuntimeException(e);
-//            } finally {
-//                connect.close(); // Close the connection
-//            }
-//        }
-//        return seatsJson;
-//    }
-
     @GetMapping("/seats/reserved")
     public String getReservedSeats(@RequestParam(name = "id_seansu") int id_seansu){
 
@@ -382,7 +331,7 @@ public class MyApiApplication {
         if (connection != null) {
             try {
 
-                String query = "SELECT miejsca.rzad, miejsca.fotel FROM bilet INNER JOIN miejsca ON bilet.id_miejsca=miejsca.id_miejsca WHERE bilet.id_seansu = ?";
+                String query = "SELECT miejsce FROM bilet WHERE bilet.id_seansu = ?";
 
                 PreparedStatement statement = connection.prepareStatement(query);
                 statement.setInt(1, id_seansu);
@@ -393,12 +342,10 @@ public class MyApiApplication {
                 ObjectMapper objectMapper = new ObjectMapper();
                 ArrayNode seatsArray = objectMapper.createArrayNode();
                 while (resultSet.next()) {
-                    int row = resultSet.getInt("rzad");
-                    int col = resultSet.getInt("fotel");
+                    String seat = resultSet.getString("miejsce");
 
                     ObjectNode movieObject = objectMapper.createObjectNode();
-                    movieObject.put("rzad", row);
-                    movieObject.put("fotel", col);
+                    movieObject.put("seat", seat);
 
                     seatsArray.add(movieObject);
                 }
@@ -473,13 +420,13 @@ public class MyApiApplication {
                                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
                             }*/
 
-                            String insertTicketQuery = "INSERT INTO bilet (id_biletu, id_rezer, id_seansu, id_sali, miejsce, cena) VALUES (NULL, ?, ?, ?, ?, ?, ?)";
+                            String insertTicketQuery = "INSERT INTO bilet (id_biletu, id_rezer, id_seansu, id_sali, miejsce, cena) VALUES (NULL, ?, ?, ?, ?, ?)";
                             PreparedStatement insertTicketStatement = connection.prepareStatement(insertTicketQuery);
                             insertTicketStatement.setInt(1, orderId);
                             insertTicketStatement.setInt(2, showId);
                             insertTicketStatement.setInt(3, hallId);
-                            insertTicketStatement.setInt(4, ticket.getMiejsce());
-                            insertTicketStatement.setDouble(6, ticket.getCena());
+                            insertTicketStatement.setString(4, ticket.getMiejsce());
+                            insertTicketStatement.setDouble(5, ticket.getCena());
                             insertTicketStatement.executeUpdate();
                             insertTicketStatement.close();
                         }

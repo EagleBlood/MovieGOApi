@@ -1,7 +1,7 @@
 package api;
 
 public class Ticket {
-    private int miejsce;
+    private String miejsce;
 
     private double cena;
 
@@ -9,7 +9,7 @@ public class Ticket {
         // Pusty konstruktor wymagany przez deserializację JSON
     }
 
-    public Ticket(double cena, int miejsce) {
+    public Ticket(double cena, String miejsce) {
         this.cena = cena;
         this.miejsce = miejsce;
     }
@@ -17,11 +17,11 @@ public class Ticket {
        public double getCena() {
         return cena;
     }
-    public int getMiejsce() {
+    public String getMiejsce() {
         return miejsce;
     }
 
-    public void setMiejsce(int miejsce) {
+    public void setMiejsce(String miejsce) {
         this.miejsce = miejsce;
     }
 
