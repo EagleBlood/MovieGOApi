@@ -406,23 +406,25 @@ public class MyApiApplication {
 
                        // Insert tickets
                         for (Ticket ticket : ticketList) {
-                            String checkSeatQuery = "SELECT * FROM miejsca WHERE id_miejsca = ?";
-                            PreparedStatement checkSeatStatement = connection.prepareStatement(checkSeatQuery);
-                            checkSeatStatement.setInt(1, ticket.getId_miejsca());
-                            ResultSet checkSeatResult = checkSeatStatement.executeQuery();
+                            /*String checkHallQuery = "SELECT * FROM sale WHERE id_sali = ?";
+                            PreparedStatement checkHallStatement = connection.prepareStatement(checkHallQuery);
+                            checkHallStatement.setInt(1, ticket.getId_sali());
+                            ResultSet checkHallResult = checkHallStatement.executeQuery();
 
-                            if (!checkSeatResult.next()) {
-                                System.out.println("Seat with id " + ticket.getId_miejsca() + " does not exist.");
-                                connection.rollback(); // Rollback the transaction if the seat does not exist
+                            if (!checkHallResult.next()) {
+                                System.out.println("Hall with id " + ticket.getId_sali() + " does not exist.");
+                                connection.rollback(); // Rollback the transaction if the hall does not exist
                                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
-                            }
+                            }*/
 
-                            String insertTicketQuery = "INSERT INTO bilet (id_biletu, id_rezer, id_seansu, id_miejsca, cena) VALUES (NULL, ?, ?, ?, ?)";
+                            String insertTicketQuery = "INSERT INTO bilet (id_biletu, id_rezer, id_seansu, id_sali, b_rzad, b_kolumna, cena) VALUES (NULL, ?, ?, ?, ?, ?, ?)";
                             PreparedStatement insertTicketStatement = connection.prepareStatement(insertTicketQuery);
                             insertTicketStatement.setInt(1, orderId);
                             insertTicketStatement.setInt(2, ticket.getId_seansu());
-                            insertTicketStatement.setInt(3, ticket.getId_miejsca());
-                            insertTicketStatement.setDouble(4, ticket.getCena());
+                            insertTicketStatement.setInt(3, ticket.getId_sali());
+                            insertTicketStatement.setInt(4, ticket.getB_rzad());
+                            insertTicketStatement.setInt(5, ticket.getB_kolumna());
+                            insertTicketStatement.setDouble(6, ticket.getCena());
                             insertTicketStatement.executeUpdate();
                             insertTicketStatement.close();
                         }
