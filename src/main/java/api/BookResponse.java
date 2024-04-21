@@ -1,11 +1,12 @@
 package api;
 
 import java.util.List;
-import com.google.gson.annotations.SerializedName;
 
 public class BookResponse {
 
     private int userId;
+    private int showId;
+    private int hallId;
     private double price;
     private List<Ticket> ticketList;
 
@@ -13,10 +14,20 @@ public class BookResponse {
         // Pusty konstruktor wymagany przez deserializację JSON
     }
 
-    public BookResponse(int userId, double price, List<Ticket> ticketList) {
+    public BookResponse(int userId, int showId, int hallId, double price, List<Ticket> ticketList) {
         this.userId = userId;
+        this.showId = showId;
+        this.hallId = hallId;
         this.price = price;
         this.ticketList = ticketList;
+    }
+
+    public int getShowId() {
+        return showId;
+    }
+
+    public int getHallId() {
+        return hallId;
     }
 
     public int getUserId() {

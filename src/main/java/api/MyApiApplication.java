@@ -201,6 +201,60 @@ public class MyApiApplication {
         return ResponseEntity.notFound().build();
     }
 
+    @GetMapping("/halls")
+    public ResponseEntity<String> getHalls() {
+        Connect connect = new Connect();
+        Connection connection = connect.getConnection();
+        if (connection != null) {
+            try {
+                // Create SQL query
+                String query = "SELECT * FROM sale;";
+
+                // Execute the query
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(query);
+
+
+                ObjectMapper objectMapper = new ObjectMapper();
+                ArrayNode moviesArray = objectMapper.createArrayNode();
+
+
+                while (resultSet.next()) {
+
+                    ObjectNode movieObject = objectMapper.createObjectNode();
+                    movieObject.put("hallId", resultSet.getInt("id_sali"));
+                    movieObject.put("hallNumber", resultSet.getInt("numer"));
+                    movieObject.put("hallRows", resultSet.getInt("s_rzedy"));
+                    movieObject.put("hallColumns", resultSet.getInt("s_kolumny"));
+                    moviesArray.add(movieObject);
+                }
+
+
+
+                resultSet.close();
+                statement.close();
+
+                // Convert the moviesArray to a JSON string
+                String moviesJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(moviesArray);
+
+                // Set the response headers
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+
+                // Return the response with the JSON string and headers
+                return new ResponseEntity<>(moviesJson, headers, HttpStatus.OK);
+
+            } catch (SQLException | IOException e) {
+                e.printStackTrace();
+            } finally {
+                connect.close(); // Close the connection
+            }
+        }
+
+        // Return a response indicating no movies found
+        return ResponseEntity.notFound().build();
+    }
+
     @GetMapping("/tickets")
     public String getTickets(@RequestParam(name = "id_uzyt") int id_uzyt) {
         Connect connect = new Connect();
@@ -268,56 +322,56 @@ public class MyApiApplication {
         return moviesJson;
     }
 
-    @GetMapping("/seats")
-    public String getSeats(){
-        Connect connect = new Connect();
-        Connection connection = connect.getConnection();
-        String seatsJson = "No movies found";
-        if (connection != null) {
-            try {
-                // Create SQL query
-                String query = "SELECT id_miejsca, rzad, fotel FROM miejsca";
-
-                // Execute the query
-                Statement statement = connection.createStatement();
-                ResultSet resultSet = statement.executeQuery(query);
-
-                // Process query results
-                seatsJson = "";
-
-                ObjectMapper objectMapper = new ObjectMapper();
-                ArrayNode seatsArray = objectMapper.createArrayNode();
-                while (resultSet.next()) {
-                    // Get values from query result columns
-                    int seatId = resultSet.getInt("id_miejsca");
-                    int row = resultSet.getInt("rzad");
-                    int armchair = resultSet.getInt("fotel");
-
-                    // Append movie details to the response string
-                    ObjectNode movieObject = objectMapper.createObjectNode();
-                    movieObject.put("id_miejsca", seatId);
-                    movieObject.put("rzad", row);
-                    movieObject.put("fotel", armchair);
-
-                    seatsArray.add(movieObject);
-                }
-
-                seatsJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(seatsArray);
-
-                // Close ResultSet and Statement objects
-                resultSet.close();
-                statement.close();
-
-            } catch (SQLException e) {
-                e.printStackTrace();
-            } catch (JsonProcessingException e) {
-                throw new RuntimeException(e);
-            } finally {
-                connect.close(); // Close the connection
-            }
-        }
-        return seatsJson;
-    }
+//    @GetMapping("/seats")
+//    public String getSeats(){
+//        Connect connect = new Connect();
+//        Connection connection = connect.getConnection();
+//        String seatsJson = "No movies found";
+//        if (connection != null) {
+//            try {
+//                // Create SQL query
+//                String query = "SELECT id_miejsca, rzad, fotel FROM miejsca";
+//
+//                // Execute the query
+//                Statement statement = connection.createStatement();
+//                ResultSet resultSet = statement.executeQuery(query);
+//
+//                // Process query results
+//                seatsJson = "";
+//
+//                ObjectMapper objectMapper = new ObjectMapper();
+//                ArrayNode seatsArray = objectMapper.createArrayNode();
+//                while (resultSet.next()) {
+//                    // Get values from query result columns
+//                    int seatId = resultSet.getInt("id_miejsca");
+//                    int row = resultSet.getInt("rzad");
+//                    int armchair = resultSet.getInt("fotel");
+//
+//                    // Append movie details to the response string
+//                    ObjectNode movieObject = objectMapper.createObjectNode();
+//                    movieObject.put("id_miejsca", seatId);
+//                    movieObject.put("rzad", row);
+//                    movieObject.put("fotel", armchair);
+//
+//                    seatsArray.add(movieObject);
+//                }
+//
+//                seatsJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(seatsArray);
+//
+//                // Close ResultSet and Statement objects
+//                resultSet.close();
+//                statement.close();
+//
+//            } catch (SQLException e) {
+//                e.printStackTrace();
+//            } catch (JsonProcessingException e) {
+//                throw new RuntimeException(e);
+//            } finally {
+//                connect.close(); // Close the connection
+//            }
+//        }
+//        return seatsJson;
+//    }
 
     @GetMapping("/seats/reserved")
     public String getReservedSeats(@RequestParam(name = "id_seansu") int id_seansu){
@@ -370,6 +424,8 @@ public class MyApiApplication {
     public ResponseEntity<BookResponse> bookTickets(@RequestBody BookResponse bookResponse) {
         try {
             int userId = bookResponse.getUserId();
+            int showId = bookResponse.getShowId();
+            int hallId = bookResponse.getHallId();
             double price = bookResponse.getPrice();
             List<Ticket> ticketList = bookResponse.getTicketList();
 
@@ -417,13 +473,12 @@ public class MyApiApplication {
                                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
                             }*/
 
-                            String insertTicketQuery = "INSERT INTO bilet (id_biletu, id_rezer, id_seansu, id_sali, b_rzad, b_kolumna, cena) VALUES (NULL, ?, ?, ?, ?, ?, ?)";
+                            String insertTicketQuery = "INSERT INTO bilet (id_biletu, id_rezer, id_seansu, id_sali, miejsce, cena) VALUES (NULL, ?, ?, ?, ?, ?, ?)";
                             PreparedStatement insertTicketStatement = connection.prepareStatement(insertTicketQuery);
                             insertTicketStatement.setInt(1, orderId);
-                            insertTicketStatement.setInt(2, ticket.getId_seansu());
-                            insertTicketStatement.setInt(3, ticket.getId_sali());
-                            insertTicketStatement.setInt(4, ticket.getB_rzad());
-                            insertTicketStatement.setInt(5, ticket.getB_kolumna());
+                            insertTicketStatement.setInt(2, showId);
+                            insertTicketStatement.setInt(3, hallId);
+                            insertTicketStatement.setInt(4, ticket.getMiejsce());
                             insertTicketStatement.setDouble(6, ticket.getCena());
                             insertTicketStatement.executeUpdate();
                             insertTicketStatement.close();
