@@ -89,6 +89,68 @@ public class MyApiApplication {
         return ResponseEntity.notFound().build();
     }
 
+    @GetMapping("/movie")
+    public ResponseEntity<String> getMovie(@RequestParam(name = "id_filmu") int id_filmu) {
+
+        Connect connect = new Connect();
+        Connection connection = connect.getConnection();
+        if (connection != null) {
+            try {
+                // Create SQL query
+                String query = "SELECT f.id_filmu, f.tytul, f.czas_trwania, f.ocena, f.opis, f.cena, f.okladka, g.nazwa_gatunku " +
+                        "FROM film f " +
+                        "INNER JOIN gatunek g ON f.id_gatunku = g.id_gatunku " +
+                        "WHERE id_filmu = ? ";
+
+                // Execute the query
+                PreparedStatement statement = connection.prepareStatement(query);
+                statement.setInt(1, id_filmu);
+                ResultSet resultSet = statement.executeQuery();
+
+
+                ObjectMapper objectMapper = new ObjectMapper();
+                ArrayNode moviesArray = objectMapper.createArrayNode();
+
+
+                while (resultSet.next()) {
+
+                    ObjectNode movieObject = objectMapper.createObjectNode();
+                    movieObject.put("movieId", resultSet.getInt("id_filmu"));
+                    movieObject.put("movieTitle", resultSet.getString("tytul"));
+                    movieObject.put("movieDuration", resultSet.getInt("czas_trwania"));
+                    movieObject.put("movieScore", resultSet.getDouble("ocena"));
+                    movieObject.put("movieDescription", resultSet.getString("opis"));
+                    movieObject.put("movieCover", resultSet.getString("okladka"));
+                    movieObject.put("moviePrice", resultSet.getDouble("cena"));
+                    movieObject.put("movieGenre", resultSet.getString("nazwa_gatunku"));
+
+                    moviesArray.add(movieObject);
+                }
+
+                resultSet.close();
+                statement.close();
+
+                // Convert the moviesArray to a JSON string
+                String moviesJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(moviesArray);
+
+                // Set the response headers
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+
+                // Return the response with the JSON string and headers
+                return new ResponseEntity<>(moviesJson, headers, HttpStatus.OK);
+
+            } catch (SQLException | IOException e) {
+                e.printStackTrace();
+            } finally {
+                connect.close(); // Close the connection
+            }
+        }
+
+        // Return a response indicating no movies found
+        return ResponseEntity.notFound().build();
+    }
+
     @GetMapping("/schedules")
     public ResponseEntity<String> getSchedules() {
         Connect connect = new Connect();
