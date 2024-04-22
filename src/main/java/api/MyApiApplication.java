@@ -325,10 +325,9 @@ public class MyApiApplication {
         if (connection != null) {
             try {
                 // Create SQL query
-                String query = "SELECT rezerwacje.nr_rezerwacji, film.tytul, uzytkownicy.login, COUNT(bilet.id_rezer) AS ilosc_biletow, GROUP_CONCAT(CONCAT(miejsca.rzad, ':', miejsca.fotel) SEPARATOR ' | ') AS miejsca, SUM(bilet.cena) AS cena, CONCAT(seanse.data,' ', seanse.pora_emisji) AS data FROM bilet " +
+                String query = "SELECT rezerwacje.nr_rezerwacji, film.tytul, COUNT(bilet.id_rezer) AS ilosc_biletow, GROUP_CONCAT(CONCAT(bilet.miejsce) SEPARATOR ' | ') AS miejsca, rezerwacje.kwota_rezer, CONCAT(seanse.data,' ', seanse.pora_emisji) AS data FROM bilet " +
                         "INNER JOIN rezerwacje ON bilet.id_rezer = rezerwacje.id_rezer " +
                         "INNER JOIN uzytkownicy ON rezerwacje.id_uzyt = uzytkownicy.id_uzyt " +
-                        "INNER JOIN miejsca ON bilet.id_miejsca = miejsca.id_miejsca " +
                         "INNER JOIN seanse ON bilet.id_seansu = seanse.id_seansu " +
                         "INNER JOIN film ON seanse.id_filmu = film.id_filmu " +
                         "WHERE uzytkownicy.id_uzyt = ? " +
@@ -348,21 +347,19 @@ public class MyApiApplication {
                     // Get values from query result columns
                     String reservationNumber = resultSet.getString("nr_rezerwacji");
                     String movieTitle = resultSet.getString("tytul");
-                    String userLogin = resultSet.getString("login");
                     int reservationId = resultSet.getInt("ilosc_biletow");
                     String seatDescription = resultSet.getString("miejsca");
-                    double orderValue = resultSet.getDouble("cena");
+                    double orderValue = resultSet.getDouble("kwota_rezer");
                     String dateReservation = resultSet.getString("data");
 
                     // Append movie details to the response string
                     ObjectNode movieObject = objectMapper.createObjectNode();
-                    movieObject.put("nr_rezerwacji", reservationNumber);
-                    movieObject.put("tytul", movieTitle);
-                    movieObject.put("login", userLogin);
-                    movieObject.put("ilosc_biletow", reservationId);
-                    movieObject.put("miejsca", seatDescription);
-                    movieObject.put("cena", orderValue);
-                    movieObject.put("data", dateReservation);
+                    movieObject.put("reservationNumber", reservationNumber);
+                    movieObject.put("movieTitle", movieTitle);
+                    movieObject.put("reservationId", reservationId);
+                    movieObject.put("seatDescription", seatDescription);
+                    movieObject.put("orderValue", orderValue);
+                    movieObject.put("dateReservation", dateReservation);
 
                     moviesArray.add(movieObject);
                 }
