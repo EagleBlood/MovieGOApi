@@ -720,7 +720,7 @@ public class MyApiApplication {
         String birthDate = userData.getBirthDate();
 
         int parseUserID = Integer.parseInt(userID);
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy"); // Określ format daty
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd"); // Określ format daty
         LocalDate localDate = LocalDate.parse(birthDate, formatter); // Parsuj string jako LocalDate
         Date sqlDate = Date.valueOf(localDate);
         int parsePhoneNumber = Integer.parseInt(phoneNumber);
