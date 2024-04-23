@@ -321,17 +321,29 @@ public class MyApiApplication {
     public String getTickets(@RequestParam(name = "id_uzyt") int id_uzyt) {
         Connect connect = new Connect();
         Connection connection = connect.getConnection();
-        String moviesJson = "No movies found";
+        String reservationJson = "No movies found";
         if (connection != null) {
             try {
+
+                String seatsQuery = "SELECT bilet.miejsce FROM bilet WHERE uzytkownicy.id_uzyt = ?;";
+
+
                 // Create SQL query
-                String query = "SELECT rezerwacje.nr_rezerwacji, film.tytul, COUNT(bilet.id_rezer) AS ilosc_biletow, GROUP_CONCAT(CONCAT(bilet.miejsce) SEPARATOR ' | ') AS miejsca, rezerwacje.kwota_rezer, CONCAT(seanse.data,' ', seanse.pora_emisji) AS data FROM bilet " +
-                        "INNER JOIN rezerwacje ON bilet.id_rezer = rezerwacje.id_rezer " +
-                        "INNER JOIN uzytkownicy ON rezerwacje.id_uzyt = uzytkownicy.id_uzyt " +
-                        "INNER JOIN seanse ON bilet.id_seansu = seanse.id_seansu " +
-                        "INNER JOIN film ON seanse.id_filmu = film.id_filmu " +
-                        "WHERE uzytkownicy.id_uzyt = ? " +
-                        "GROUP BY bilet.id_rezer";
+//                String query = "SELECT rezerwacje.nr_rezerwacji, film.tytul, COUNT(bilet.id_rezer) AS ilosc_biletow, GROUP_CONCAT(CONCAT(bilet.miejsce) SEPARATOR ' | ') AS miejsca, rezerwacje.kwota_rezer, CONCAT(seanse.data,' ', seanse.pora_emisji) AS data FROM bilet " +
+//                        "INNER JOIN rezerwacje ON bilet.id_rezer = rezerwacje.id_rezer " +
+//                        "INNER JOIN uzytkownicy ON rezerwacje.id_uzyt = uzytkownicy.id_uzyt " +
+//                        "INNER JOIN seanse ON bilet.id_seansu = seanse.id_seansu " +
+//                        "INNER JOIN film ON seanse.id_filmu = film.id_filmu " +
+//                        "WHERE uzytkownicy.id_uzyt = ? " +
+//                        "GROUP BY bilet.id_rezer";
+
+                String query = "SELECT rezerwacje.nr_rezerwacji, film.tytul, bilet.miejsce, bilet.cena, rezerwacje.kwota_rezer, CONCAT(seanse.data,' ', seanse.pora_emisji) AS data FROM bilet" +
+                        " INNER JOIN rezerwacje ON bilet.id_rezer = rezerwacje.id_rezer" +
+                        " INNER JOIN uzytkownicy ON rezerwacje.id_uzyt = uzytkownicy.id_uzyt" +
+                        " INNER JOIN seanse ON bilet.id_seansu = seanse.id_seansu" +
+                        " INNER JOIN film ON seanse.id_filmu = film.id_filmu" +
+                        " WHERE uzytkownicy.id_uzyt = ?" +
+                        " GROUP BY bilet.miejsce;";
 
                 // Execute the query
                 PreparedStatement statement = connection.prepareStatement(query);
@@ -339,32 +351,53 @@ public class MyApiApplication {
                 ResultSet resultSet = statement.executeQuery();
 
                 // Process query results
-                moviesJson = "";
+                reservationJson = "";
 
                 ObjectMapper objectMapper = new ObjectMapper();
-                ArrayNode moviesArray = objectMapper.createArrayNode();
+                ArrayNode reservationsArray = objectMapper.createArrayNode(); // Tablica na rezerwacje w formacie JSON
+
                 while (resultSet.next()) {
-                    // Get values from query result columns
+                    // Pobranie wartości z kolumn wyniku zapytania
                     String reservationNumber = resultSet.getString("nr_rezerwacji");
                     String movieTitle = resultSet.getString("tytul");
-                    int reservationId = resultSet.getInt("ilosc_biletow");
-                    String seatDescription = resultSet.getString("miejsca");
                     double orderValue = resultSet.getDouble("kwota_rezer");
                     String dateReservation = resultSet.getString("data");
 
-                    // Append movie details to the response string
-                    ObjectNode movieObject = objectMapper.createObjectNode();
-                    movieObject.put("reservationNumber", reservationNumber);
-                    movieObject.put("movieTitle", movieTitle);
-                    movieObject.put("reservationId", reservationId);
-                    movieObject.put("seatDescription", seatDescription);
-                    movieObject.put("orderValue", orderValue);
-                    movieObject.put("dateReservation", dateReservation);
+                    // Utworzenie obiektu JSON dla każdej rezerwacji
+                    ObjectNode reservationObject = objectMapper.createObjectNode();
+                    reservationObject.put("reservationNumber", reservationNumber);
+                    reservationObject.put("movieTitle", movieTitle);
+                    reservationObject.put("orderValue", orderValue);
+                    reservationObject.put("dateReservation", dateReservation);
 
-                    moviesArray.add(movieObject);
+                    // Utworzenie tablicy na miejsca i ceny
+                    ArrayNode seatsArray = objectMapper.createArrayNode();
+                    ObjectNode seatObject = objectMapper.createObjectNode();
+                    seatObject.put("seat", resultSet.getString("miejsce"));
+                    seatObject.put("price", resultSet.getDouble("cena"));
+                    seatsArray.add(seatObject);
+
+                    // Sprawdzenie, czy rezerwacja o danym numerze już istnieje w tablicy
+                    boolean reservationExists = false;
+                    for (int i = 0; i < reservationsArray.size(); i++) {
+                        ObjectNode existingReservation = (ObjectNode) reservationsArray.get(i);
+                        if (existingReservation.get("reservationNumber").asText().equals(reservationNumber)) {
+                            ((ArrayNode) existingReservation.get("seats")).add(seatObject);
+                            reservationExists = true;
+                            break;
+                        }
+                    }
+
+                    // Jeśli rezerwacja nie istnieje, dodaj nową rezerwację do tablicy
+                    if (!reservationExists) {
+                        reservationObject.set("seats", seatsArray);
+                        reservationsArray.add(reservationObject);
+                    }
                 }
 
-                moviesJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(moviesArray);
+                // Konwersja tablicy JSON do JSON
+                reservationJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(reservationsArray);
+
 
                 // Close ResultSet and Statement objects
                 resultSet.close();
@@ -378,7 +411,7 @@ public class MyApiApplication {
                 connect.close(); // Close the connection
             }
         }
-        return moviesJson;
+        return reservationJson;
     }
 
     @GetMapping("/seats/reserved")
