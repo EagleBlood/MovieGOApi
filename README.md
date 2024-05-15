@@ -2,6 +2,9 @@
 
 Custom SpringBoot API,
 
+> [!IMPORTANT]
+> For schema that works **ONLY** for [MovieGONative](https://github.com/EagleBlood/MovieGONative) you need to switch to [```main-reactNative```](https://github.com/EagleBlood/MovieGOApi/tree/main-reactNative) branch.
+
 ## Getting Started
 To ensure successful execution of API server, the following prerequisites must be met:
 
@@ -29,6 +32,6 @@ mvn clean install
 After succesfull build in ```/src/main/java/connection/Connect.java``` you must assign valid url for your MySql Database and provide existing login and password within your DB workplace.
 
 > [!NOTE]
-> You can build DB structure from scratch using provided [scheme](), or use provided raw [SQL files]() to import.
+> You can build DB structure from scratch using provided [scheme](), or use provided raw SQL files to import.
 
 If everything was done acordingly you should connect to your DB and start making request at both [MovieGO](https://github.com/EagleBlood/MovieGO) and [MovieGOAdmin](https://github.com/EagleBlood/MovieGOAdmin) applications.
