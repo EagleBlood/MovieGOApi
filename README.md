@@ -1,6 +1,6 @@
 # MovieGO API
 
-Custom SpringBoot API,
+Custom SpringBoot API for MovieGO React-Native series projects.
 
 > [!IMPORTANT]
 > For schema that works **ONLY** for [MovieGO](https://github.com/EagleBlood/MovieGO) you need to switch to [```main-android```](https://github.com/EagleBlood/MovieGOApi/tree/main-android) branch.
