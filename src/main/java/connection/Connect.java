@@ -10,7 +10,7 @@ public class Connect {
     private String user = "login";
     private String pass = "password";
 
-    private String url = "jdbc:mysql://w10.domenomania.eu/wiktor10_kino";
+    private String url = "jdbc:mysql:yourDomain";
     private Connection connection;
 
     public Connect() {
