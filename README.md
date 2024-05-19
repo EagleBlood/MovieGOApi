@@ -32,6 +32,6 @@ mvn clean install
 After succesfull build in ```/src/main/java/connection/Connect.java``` you must assign valid url for your MySql Database and provide existing login and password within your DB workplace.
 
 > [!NOTE]
-> You can build DB structure from scratch using provided [scheme](https://github.com/EagleBlood/MovieGOApi/blob/main-android/cinema.sql), or use provided raw SQL files to import.
+> You can build DB structure from scratch using provided raw [SQL file](https://github.com/EagleBlood/MovieGOApi/blob/main-android/cinema.sql) to import.
 
 If everything was done acordingly you should connect to your DB and start making request at both [MovieGO](https://github.com/EagleBlood/MovieGO) and [MovieGOAdmin](https://github.com/EagleBlood/MovieGOAdmin) applications.
